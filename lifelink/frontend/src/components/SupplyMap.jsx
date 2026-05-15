@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
 
-// Approximate coordinates for major Mexican cities
+/* ─── City coordinates (Mexico) ──────────────────────── */
 const CITY_COORDS = {
   'cdmx': [19.4326, -99.1332], 'ciudad de mexico': [19.4326, -99.1332],
   'ciudad de méxico': [19.4326, -99.1332], 'mexico city': [19.4326, -99.1332],
@@ -33,122 +33,156 @@ const CITY_COORDS = {
   'ensenada': [31.8667, -116.5960], 'matamoros': [25.8691, -97.5027],
   'nuevo laredo': [27.4761, -99.5155], 'reynosa': [26.0750, -98.2849],
   'celaya': [20.5236, -100.8145], 'irapuato': [20.6767, -101.3478],
-  'silao': [20.9370, -101.4369], 'lazaro cardenas': [17.9586, -102.1914],
 };
 
 function getCityCoords(cityName) {
   if (!cityName) return null;
-  const key = cityName.toLowerCase().trim();
-  return CITY_COORDS[key] || null;
+  return CITY_COORDS[cityName.toLowerCase().trim()] || null;
 }
 
+/* ─── Build SVG pin icon ─────────────────────────────── */
+function buildPinIcon(L, count, isUrgent, cityKey) {
+  const c1 = isUrgent ? '#ff5f20' : '#0770a8';
+  const c2 = isUrgent ? '#c72f0b' : '#14b8a6';
+  const fs = count > 99 ? 9 : count > 9 ? 11 : 13;
+  const label = count > 99 ? '99+' : String(count);
+  const id = `ll-${cityKey}`;
+
+  const html = `
+    <div class="ll-pin${isUrgent ? ' ll-pin-urgent' : ''}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 44 54">
+        <defs>
+          <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${c1}"/>
+            <stop offset="100%" stop-color="${c2}"/>
+          </linearGradient>
+          <filter id="${id}-sh">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="rgba(0,0,0,0.28)"/>
+          </filter>
+        </defs>
+        <path d="M22 1C11.5 1 3 9.5 3 20c0 13.25 16.5 27.5 18.1 28.9a1.4 1.4 0 0 0 1.8 0C24.5 47.5 41 33.25 41 20 41 9.5 32.5 1 22 1z"
+              fill="url(#${id})" filter="url(#${id}-sh)"/>
+        <circle cx="22" cy="20" r="13" fill="white" opacity="0.93"/>
+        <text x="22" y="${20 + fs / 2 + 1}" text-anchor="middle"
+              font-size="${fs}" font-weight="800"
+              font-family="Plus Jakarta Sans, Arial, sans-serif"
+              fill="${c1}">${label}</text>
+      </svg>
+    </div>`;
+
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [44, 54],
+    iconAnchor: [22, 54],
+    popupAnchor: [0, -58],
+  });
+}
+
+/* ─── Build rich HTML popup ──────────────────────────── */
+function buildPopupHtml(label, items) {
+  const count = items.length;
+  const urgentCount   = items.filter((s) => s.is_urgent).length;
+  const donationCount = items.filter((s) => s.supply_type === 'donacion').length;
+
+  const thumbs = items
+    .filter((s) => s.images?.length > 0)
+    .slice(0, 3)
+    .map((s) => {
+      const img = s.images.find((i) => i.is_primary) || s.images[0];
+      return `<img src="${img.image_url}" alt=""
+        style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex-shrink:0"/>`;
+    });
+
+  const badges = [
+    urgentCount > 0
+      ? `<span style="background:#fff1ee;color:#c72f0b;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">
+           🚨 ${urgentCount} urgente${urgentCount !== 1 ? 's' : ''}
+         </span>` : '',
+    donationCount > 0
+      ? `<span style="background:#f0fdfa;color:#0f766e;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">
+           🎁 ${donationCount} gratis
+         </span>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div style="font-family:'Plus Jakarta Sans',system-ui;min-width:200px;max-width:240px">
+      <div style="font-weight:800;font-size:15px;color:#0c5d8a;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+        <span>📍</span><span>${label}</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:${badges ? '8px' : '10px'}">
+        <strong style="color:#1a2332;font-size:14px">${count}</strong>
+        insumo${count !== 1 ? 's' : ''} disponible${count !== 1 ? 's' : ''}
+      </div>
+      ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${thumbs.length ? '10px' : '10px'}">${badges}</div>` : ''}
+      ${thumbs.length ? `<div style="display:flex;gap:4px;margin-bottom:10px">${thumbs.join('')}</div>` : ''}
+      <a href="/supplies?city=${encodeURIComponent(label)}"
+         style="display:block;background:linear-gradient(135deg,#0770a8,#14b8a6);color:white;padding:7px 14px;
+                border-radius:10px;text-align:center;font-size:12px;font-weight:700;text-decoration:none">
+        Ver ${count} insumo${count !== 1 ? 's' : ''} →
+      </a>
+    </div>`;
+}
+
+/* ─── Component ──────────────────────────────────────── */
 export default function SupplyMap({ supplies = [], height = '420px' }) {
-  const mapRef = useRef(null);
+  const mapRef        = useRef(null);
   const leafletMapRef = useRef(null);
-  const markersRef = useRef([]);
+  const markersRef    = useRef([]);
 
   useEffect(() => {
-    let L;
-    let map;
-
     const init = async () => {
-      L = (await import('leaflet')).default;
-
-      // Fix default marker icon path issue with Vite
-      delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      });
+      const L = (await import('leaflet')).default;
 
       if (!mapRef.current || leafletMapRef.current) return;
 
-      map = L.map(mapRef.current, {
-        center: [23.6345, -102.5528], // Centro de México
+      const map = L.map(mapRef.current, {
+        center: [23.6345, -102.5528],
         zoom: 5,
-        zoomControl: true,
+        zoomControl: false,
         scrollWheelZoom: false,
       });
-
       leafletMapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 18,
-      }).addTo(map);
+      /* CartoDB Voyager — much more vibrant than light_all */
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        { maxZoom: 19, attribution: '© OpenStreetMap, © CartoDB' }
+      ).addTo(map);
 
-      // Group supplies by city
+      /* Zoom controls bottom-right */
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      /* Group by city */
       const cityGroups = {};
       for (const supply of supplies) {
         const city = supply.city?.trim();
         if (!city) continue;
         const coords = getCityCoords(city);
         if (!coords) continue;
-        const key = city.toLowerCase();
-        if (!cityGroups[key]) {
-          cityGroups[key] = { coords, label: city, items: [] };
-        }
+        const key = city.toLowerCase().replace(/\s+/g, '');
+        if (!cityGroups[key]) cityGroups[key] = { coords, label: city, items: [], key };
         cityGroups[key].items.push(supply);
       }
 
-      // Add markers
+      /* Add markers */
       for (const group of Object.values(cityGroups)) {
-        const { coords, label, items } = group;
-        const count = items.length;
+        const { coords, label, items, key } = group;
+        const isUrgent = items.some((s) => s.is_urgent);
 
-        const iconHtml = `
-          <div style="
-            background: linear-gradient(135deg, #0770a8, #14b8a6);
-            color: white;
-            font-family: 'Plus Jakarta Sans', system-ui;
-            font-weight: 700;
-            font-size: ${count > 9 ? '10' : '12'}px;
-            width: 36px; height: 36px;
-            border-radius: 50% 50% 50% 4px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 3px 10px rgba(7,112,168,0.4);
-            border: 2px solid white;
-            transform: rotate(-45deg);
-          ">
-            <span style="transform: rotate(45deg)">${count > 99 ? '99+' : count}</span>
-          </div>`;
-
-        const icon = L.divIcon({
-          html: iconHtml,
-          className: '',
-          iconSize: [36, 36],
-          iconAnchor: [18, 36],
-          popupAnchor: [0, -36],
-        });
-
-        const urgentCount = items.filter((s) => s.is_urgent).length;
-        const donationCount = items.filter((s) => s.supply_type === 'donacion').length;
-
-        const popupHtml = `
-          <div style="min-width:180px; font-family:'Plus Jakarta Sans',system-ui">
-            <div style="font-weight:700; font-size:14px; color:#0c5d8a; margin-bottom:6px;">
-              📍 ${label}
-            </div>
-            <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
-              <b style="color:#1a2332">${count}</b> insumo${count !== 1 ? 's' : ''} disponible${count !== 1 ? 's' : ''}
-            </div>
-            ${urgentCount > 0 ? `<div style="background:#fff6f0;color:#c72f0b;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;margin-bottom:6px;">🚨 ${urgentCount} urgente${urgentCount !== 1 ? 's' : ''}</div>` : ''}
-            ${donationCount > 0 ? `<div style="background:#f0fdfa;color:#0f766e;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;display:inline-block;margin-bottom:8px;">🎁 ${donationCount} donación${donationCount !== 1 ? 'es' : ''}</div>` : ''}
-            <a href="/supplies?city=${encodeURIComponent(label)}"
-               style="display:block;background:#0770a8;color:white;padding:6px 12px;border-radius:8px;text-align:center;font-size:12px;font-weight:600;text-decoration:none;margin-top:4px;">
-              Ver insumos →
-            </a>
-          </div>`;
-
-        const marker = L.marker(coords, { icon }).addTo(map);
-        marker.bindPopup(popupHtml, { maxWidth: 240 });
+        const icon    = buildPinIcon(L, items.length, isUrgent, key);
+        const popup   = buildPopupHtml(label, items);
+        const marker  = L.marker(coords, { icon }).addTo(map);
+        marker.bindPopup(popup, { maxWidth: 260, className: 'll-popup' });
         markersRef.current.push(marker);
       }
 
-      // If no markers, keep default Mexico view
-      if (markersRef.current.length > 0 && markersRef.current.length <= 15) {
+      /* Fit bounds */
+      if (markersRef.current.length === 1) {
+        map.setView(markersRef.current[0].getLatLng(), 10);
+      } else if (markersRef.current.length > 1) {
         const group = L.featureGroup(markersRef.current);
-        map.fitBounds(group.getBounds().pad(0.3));
+        map.fitBounds(group.getBounds().pad(0.25));
       }
     };
 
@@ -164,10 +198,7 @@ export default function SupplyMap({ supplies = [], height = '420px' }) {
   }, [supplies]);
 
   return (
-    <div
-      ref={mapRef}
-      style={{ height, width: '100%' }}
-      className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm z-0"
-    />
+    <div ref={mapRef} style={{ height, width: '100%' }}
+      className="rounded-2xl overflow-hidden border border-white/20 shadow-xl z-0" />
   );
 }

@@ -5,21 +5,22 @@ import { suppliesAPI } from '../services/api';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
   MapPin, Package, HandHeart, CheckCircle, ChevronRight,
-  Zap, Eye, Clock, AlertTriangle, Tag,
+  Zap, Eye, Clock, AlertTriangle,
+  Bone, Dumbbell, Stethoscope, Accessibility, BedDouble, Syringe,
 } from 'lucide-react';
 
 const SupplyMap = lazy(() => import('../components/SupplyMap'));
 
 /* ─── Data ─────────────────────────────────────────── */
 const COLLECTIONS = [
-  { key: 'ortopedico',    icon: '🦴', label: 'Ortopédico',     bg: 'from-amber-400 to-orange-500' },
-  { key: 'rehabilitacion',icon: '💪', label: 'Rehabilitación',  bg: 'from-blue-400 to-sky-500' },
-  { key: 'diagnostico',   icon: '🔬', label: 'Diagnóstico',    bg: 'from-violet-400 to-purple-500' },
-  { key: 'protesis',      icon: '🦿', label: 'Prótesis',       bg: 'from-slate-400 to-gray-600' },
-  { key: 'mobiliario',    icon: '🛏️', label: 'Mobiliario',    bg: 'from-teal-400 to-emerald-500' },
-  { key: 'consumibles',   icon: '💉', label: 'Consumibles',    bg: 'from-rose-400 to-pink-500' },
-  { key: 'sangre',        icon: '🩸', label: 'Sangre',         bg: 'from-red-500 to-rose-600' },
-  { key: 'otro',          icon: '📦', label: 'Otros',          bg: 'from-indigo-400 to-blue-500' },
+  { key: 'ortopedico',    Icon: Bone,          label: 'Ortopédico',    bg: 'from-amber-400 to-orange-500',  shadow: 'shadow-orange-300/60',  delay: '0s' },
+  { key: 'rehabilitacion',Icon: Dumbbell,       label: 'Rehabilitación', bg: 'from-blue-400 to-sky-500',     shadow: 'shadow-sky-300/60',     delay: '0.45s' },
+  { key: 'diagnostico',   Icon: Stethoscope,    label: 'Diagnóstico',   bg: 'from-violet-400 to-purple-500', shadow: 'shadow-purple-300/60',  delay: '0.9s' },
+  { key: 'protesis',      Icon: Accessibility,  label: 'Prótesis',      bg: 'from-slate-400 to-gray-600',    shadow: 'shadow-gray-400/60',    delay: '1.35s' },
+  { key: 'mobiliario',    Icon: BedDouble,      label: 'Mobiliario',    bg: 'from-teal-400 to-emerald-500',  shadow: 'shadow-emerald-300/60', delay: '1.8s' },
+  { key: 'consumibles',   Icon: Syringe,        label: 'Consumibles',   bg: 'from-rose-400 to-pink-500',     shadow: 'shadow-pink-300/60',    delay: '2.25s' },
+  { key: 'sangre',        Icon: Droplets,       label: 'Sangre',        bg: 'from-red-500 to-rose-600',      shadow: 'shadow-red-400/60',     delay: '2.7s' },
+  { key: 'otro',          Icon: Package,        label: 'Otros',         bg: 'from-indigo-400 to-blue-500',   shadow: 'shadow-blue-300/60',    delay: '3.15s' },
 ];
 
 const TYPE_CONFIG = {
@@ -255,10 +256,16 @@ export default function Home() {
                   <Link
                     key={cat.key}
                     to={`/supplies?category=${cat.key}`}
-                    className="bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl p-3 text-center transition-all duration-200 hover:-translate-y-0.5 group"
+                    className="bg-white/10 hover:bg-white/20 border border-white/15 rounded-xl p-3 text-center transition-all duration-200 hover:-translate-y-1 group"
                   >
-                    <div className="text-2xl mb-1 group-hover:scale-110 transition-transform">{cat.icon}</div>
-                    <p className="text-[10px] font-semibold text-slate-300 leading-tight">{cat.label}</p>
+                    <div className="flex justify-center mb-1.5">
+                      <cat.Icon
+                        size={20}
+                        strokeWidth={1.75}
+                        className="text-white/75 group-hover:text-white group-hover:scale-110 transition-all duration-200"
+                      />
+                    </div>
+                    <p className="text-[10px] font-semibold text-slate-300 group-hover:text-white leading-tight transition-colors duration-200">{cat.label}</p>
                   </Link>
                 ))}
               </div>
@@ -284,12 +291,25 @@ export default function Home() {
                 to={`/supplies?category=${cat.key}`}
                 className="group flex flex-col items-center gap-2.5"
               >
-                <div className={`w-full aspect-square rounded-full bg-gradient-to-br ${cat.bg} flex items-center justify-center border-2 border-white shadow-md group-hover:shadow-xl group-hover:scale-105 transition-all duration-300 overflow-hidden`}>
-                  <span className="text-3xl sm:text-4xl">{cat.icon}</span>
+                {/* Circle with animated icon */}
+                <div className={`w-full aspect-square rounded-full bg-gradient-to-br ${cat.bg} flex items-center justify-center border-2 border-white/80 shadow-lg group-hover:shadow-2xl group-hover:scale-110 group-hover:brightness-110 transition-all duration-500 overflow-hidden relative`}>
+                  {/* Shimmer sweep on hover */}
+                  <div className="collection-shine absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
+                  {/* Floating icon, staggered start per item */}
+                  <div
+                    className="animate-float-icon relative z-10"
+                    style={{ animationDelay: cat.delay }}
+                  >
+                    <cat.Icon
+                      className="w-7 h-7 sm:w-9 sm:h-9 text-white drop-shadow-md"
+                      strokeWidth={1.6}
+                    />
+                  </div>
                 </div>
+
                 <div className="text-center">
-                  <p className="text-xs font-bold text-gray-800 leading-tight">{cat.label}</p>
-                  <p className="text-[10px] text-primary-600 hover:underline mt-0.5">Ver oferta</p>
+                  <p className="text-xs font-bold text-gray-800 group-hover:text-primary-700 leading-tight transition-colors duration-300">{cat.label}</p>
+                  <p className="text-[10px] text-primary-500 group-hover:underline mt-0.5">Ver oferta</p>
                 </div>
               </Link>
             ))}

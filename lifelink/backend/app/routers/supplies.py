@@ -36,7 +36,7 @@ def create_supply(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    supply = Supply(**data.model_dump(), owner_id=current_user.id)
+    supply = Supply(**data.model_dump(mode='json'), owner_id=current_user.id)
     db.add(supply)
     db.commit()
     return _load_supply(db, supply.id)
@@ -168,7 +168,7 @@ def update_supply(
     ).first()
     if not supply:
         raise HTTPException(status_code=404, detail="Insumo no encontrado o no autorizado")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    for field, value in data.model_dump(mode='json', exclude_unset=True).items():
         setattr(supply, field, value)
     db.commit()
     return _load_supply(db, supply.id)

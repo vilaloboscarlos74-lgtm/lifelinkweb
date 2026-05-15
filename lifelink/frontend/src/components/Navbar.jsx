@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { notificationsAPI, requestsAPI } from '../services/api';
 import {
   Menu, X, Heart, Bell, MessageCircle, Search, Plus, User,
-  LogOut, LayoutDashboard, Package, ChevronDown, Home,
+  LogOut, LayoutDashboard, Package, ChevronDown, Home, Sun, Moon, Droplets,
 } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { dark, toggle: toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,8 +42,9 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
-    { to: '/',        label: 'Inicio',  icon: Home },
-    { to: '/supplies',label: 'Insumos', icon: Search },
+    { to: '/',        label: 'Inicio',   icon: Home },
+    { to: '/supplies',label: 'Insumos',  icon: Search },
+    { to: '/donors',  label: 'Sangre',   icon: Droplets },
   ];
 
   return (
@@ -49,8 +52,8 @@ export default function Navbar() {
       {/* Main nav bar */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-white shadow-md border-b border-gray-100'
-          : 'bg-white/90 backdrop-blur-xl border-b border-gray-100'
+          ? 'bg-white dark:bg-gray-900 shadow-md border-b border-gray-100 dark:border-gray-800'
+          : 'bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-[60px]">
@@ -61,7 +64,7 @@ export default function Navbar() {
                 <span className="text-white font-black text-sm tracking-tight">L</span>
               </div>
               <div className="hidden sm:block">
-                <span className="font-black text-lg text-gray-900 leading-none">
+                <span className="font-black text-lg text-gray-900 dark:text-white leading-none">
                   Life<span className="text-primary-600">Link</span>
                 </span>
               </div>
@@ -75,8 +78,8 @@ export default function Navbar() {
                   to={to}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                     isActive(to)
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   <Icon size={16} />
@@ -89,8 +92,8 @@ export default function Navbar() {
                   to="/messages"
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                     isActive('/messages')
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   <MessageCircle size={16} />
@@ -117,11 +120,20 @@ export default function Navbar() {
                     Publicar
                   </Link>
 
+                  {/* Theme toggle */}
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200"
+                    title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                  >
+                    {dark ? <Sun size={19} /> : <Moon size={19} />}
+                  </button>
+
                   {/* Favorites */}
                   <Link
                     to="/favorites"
                     className={`p-2 rounded-xl transition-all duration-200 hidden sm:flex ${
-                      isActive('/favorites') ? 'bg-rose-50 text-rose-500' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                      isActive('/favorites') ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-500' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
                     <Heart size={19} />
@@ -131,7 +143,7 @@ export default function Navbar() {
                   <Link
                     to="/notifications"
                     className={`p-2 rounded-xl transition-all duration-200 relative ${
-                      isActive('/notifications') ? 'bg-primary-50 text-primary-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                      isActive('/notifications') ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}
                   >
                     <Bell size={19} />
@@ -146,7 +158,7 @@ export default function Navbar() {
                   <div className="relative hidden md:block">
                     <button
                       onClick={() => setProfileOpen(!profileOpen)}
-                      className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-200"
+                      className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
                     >
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden shadow-sm">
                         {user.avatar_url ? (
@@ -157,7 +169,7 @@ export default function Navbar() {
                           </span>
                         )}
                       </div>
-                      <span className="text-sm font-semibold text-gray-700 max-w-[90px] truncate">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 max-w-[90px] truncate">
                         {user.full_name?.split(' ')[0]}
                       </span>
                       <ChevronDown size={13} className={`text-gray-400 transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`} />
@@ -166,9 +178,9 @@ export default function Navbar() {
                     {profileOpen && (
                       <>
                         <div className="fixed inset-0" onClick={() => setProfileOpen(false)} />
-                        <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-lg border border-gray-100 py-2 animate-scale-in z-50">
-                          <div className="px-4 py-3 border-b border-gray-50">
-                            <p className="text-sm font-bold text-gray-900">{user.full_name}</p>
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 py-2 animate-scale-in z-50">
+                          <div className="px-4 py-3 border-b border-gray-50 dark:border-gray-800">
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">{user.full_name}</p>
                             <p className="text-xs text-gray-400 mt-0.5">@{user.username}</p>
                           </div>
 
@@ -182,9 +194,9 @@ export default function Navbar() {
                               key={to}
                               to={to}
                               onClick={() => setProfileOpen(false)}
-                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                             >
-                              <Icon size={15} className="text-gray-400" /> {label}
+                              <Icon size={15} className="text-gray-400 dark:text-gray-500" /> {label}
                             </Link>
                           ))}
 
@@ -192,16 +204,16 @@ export default function Navbar() {
                             <Link
                               to="/admin"
                               onClick={() => setProfileOpen(false)}
-                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-primary-700 hover:bg-primary-50 transition-colors"
+                              className="flex items-center gap-3 px-4 py-2.5 text-sm text-primary-700 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                             >
                               <LayoutDashboard size={15} /> Panel Admin
                             </Link>
                           )}
 
-                          <div className="my-1 border-t border-gray-100" />
+                          <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
                           <button
                             onClick={() => { logout(); navigate('/login'); setProfileOpen(false); }}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-accent-600 hover:bg-accent-50 w-full transition-colors"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-accent-600 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-900/20 w-full transition-colors"
                           >
                             <LogOut size={15} /> Cerrar Sesión
                           </button>
@@ -233,7 +245,7 @@ export default function Navbar() {
       {menuOpen && user && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
-          <div className="absolute top-[60px] left-0 right-0 bg-white border-b border-gray-100 shadow-xl animate-slide-down">
+          <div className="absolute top-[60px] left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-xl animate-slide-down">
             <div className="p-3 space-y-0.5">
               <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden">
@@ -265,10 +277,10 @@ export default function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     highlight
-                      ? 'bg-primary-50 text-primary-700'
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
                       : isActive(to)
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >
                   <Icon size={17} className={highlight ? 'text-primary-600' : 'text-gray-400'} />
@@ -306,7 +318,7 @@ export default function Navbar() {
 
       {/* Bottom navigation — mobile only */}
       {user && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-gray-100 shadow-lg md:hidden safe-bottom">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-800 shadow-lg md:hidden safe-bottom">
           <div className="flex items-center justify-around h-[56px] px-1">
             {[
               { to: '/',             icon: Home,           label: 'Inicio' },
@@ -322,8 +334,8 @@ export default function Navbar() {
                   accent
                     ? 'bg-primary-600 text-white rounded-2xl -mt-3 px-4 shadow-lg shadow-primary-200'
                     : isActive(to)
-                      ? 'text-primary-600'
-                      : 'text-gray-400'
+                      ? 'text-primary-600 dark:text-primary-400'
+                      : 'text-gray-400 dark:text-gray-500'
                 }`}
               >
                 <Icon size={accent ? 22 : 19} />

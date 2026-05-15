@@ -6,8 +6,11 @@ from app.models.user import User, BloodType
 from app.schemas.user import UserResponse, UserUpdate, UserPublic
 from app.utils.dependencies import get_current_user
 from app.config import get_settings
+import logging
 import os
 import uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
 settings = get_settings()
@@ -18,6 +21,12 @@ IMAGE_EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp
 
 @router.get("/me", response_model=UserResponse)
 def get_my_profile(current_user: User = Depends(get_current_user)):
+    if current_user.is_blood_donor is None:
+        current_user.is_blood_donor = False
+    if current_user.is_verified is None:
+        current_user.is_verified = False
+    if current_user.rating_avg is None:
+        current_user.rating_avg = 0.0
     return current_user
 
 
@@ -27,12 +36,27 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(current_user, field, value)
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    try:
+        # mode='json' serializes enums to their string values (e.g. "A+" not "A_POSITIVE")
+        update_data = data.model_dump(mode='json', exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(current_user, field, value)
+        db.commit()
+        db.refresh(current_user)
+        # Ensure nullable bool/float columns have defaults before serialization
+        if current_user.is_blood_donor is None:
+            current_user.is_blood_donor = False
+        if current_user.is_verified is None:
+            current_user.is_verified = False
+        if current_user.rating_avg is None:
+            current_user.rating_avg = 0.0
+        return current_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating profile user {current_user.id}: {e}", exc_info=True)
+        raise HTTPException(status_code=422, detail=f"Error al guardar el perfil: {str(e)}")
 
 
 @router.post("/me/avatar", response_model=UserResponse)

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { requestsAPI } from '../services/api';
+import { requestsAPI, reviewsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import {
   Send, Inbox, Check, X, Clock, User, MessageCircle,
-  ChevronRight, Package, AlertCircle,
+  ChevronRight, Package, AlertCircle, Star, Archive,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -15,14 +16,82 @@ const STATUS_CONFIG = {
   completada: { label: 'Completada', cls: 'bg-blue-100 text-blue-700 border-blue-200',       dot: 'bg-blue-400' },
 };
 
-function RequestCard({ req, tab, onRespond, onCancel }) {
+function ReviewModal({ req, otherUser, onClose, onDone }) {
+  const [rating, setRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (rating === 0) return toast.error('Selecciona una calificación');
+    setSubmitting(true);
+    try {
+      await reviewsAPI.create({ request_id: req.id, reviewed_id: otherUser.id, rating, comment: comment.trim() || undefined });
+      toast.success('¡Reseña publicada!');
+      onDone();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al publicar reseña');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-black text-gray-900 dark:text-gray-100 mb-1">Calificar a {otherUser?.full_name}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Tu reseña ayuda a la comunidad a confiar entre sí.</p>
+
+        <div className="flex justify-center gap-2 mb-5">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <button
+              key={s}
+              onClick={() => setRating(s)}
+              onMouseEnter={() => setHovered(s)}
+              onMouseLeave={() => setHovered(0)}
+              className="transition-transform hover:scale-125"
+            >
+              <Star size={36} className={s <= (hovered || rating) ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-600'} />
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          className="input-field resize-none text-sm mb-4"
+          placeholder="Cuéntanos tu experiencia (opcional)..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          maxLength={1000}
+        />
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn-secondary flex-1 text-sm">Cancelar</button>
+          <button onClick={submit} disabled={submitting || rating === 0} className="btn-primary flex-1 text-sm">
+            {submitting ? 'Publicando...' : 'Publicar reseña'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RequestCard({ req, tab, onRespond, onCancel, onComplete, currentUser }) {
   const [responding, setResponding] = useState(false);
   const [responseMsg, setResponseMsg] = useState('');
   const [showReply, setShowReply] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [canReview, setCanReview] = useState(false);
 
   const otherUser = tab === 'received' ? req.sender : req.receiver;
   const status = STATUS_CONFIG[req.status] || STATUS_CONFIG.pendiente;
   const isPending = req.status === 'pendiente';
+
+  useEffect(() => {
+    if (req.status === 'completada') {
+      reviewsAPI.canReview(req.id).then((r) => setCanReview(r.data.can_review)).catch(() => {});
+    }
+  }, [req.id, req.status]);
 
   const handleRespond = async (newStatus) => {
     setResponding(true);
@@ -35,10 +104,10 @@ function RequestCard({ req, tab, onRespond, onCancel }) {
   };
 
   return (
-    <div className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden animate-fade-in ${
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-200 overflow-hidden animate-fade-in ${
       isPending && tab === 'received'
-        ? 'border-primary-100 shadow-md'
-        : 'border-gray-100 shadow-card'
+        ? 'border-primary-100 dark:border-primary-800 shadow-md'
+        : 'border-gray-100 dark:border-gray-700 shadow-card'
     }`}>
       {/* Status indicator bar */}
       <div className={`h-1 ${status.dot} opacity-60`} />
@@ -57,8 +126,8 @@ function RequestCard({ req, tab, onRespond, onCancel }) {
               )}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-gray-900 text-sm truncate">{otherUser?.full_name}</p>
-              <p className="text-xs text-gray-400">@{otherUser?.username}</p>
+              <p className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">{otherUser?.full_name}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">@{otherUser?.username}</p>
             </div>
           </div>
 
@@ -74,27 +143,27 @@ function RequestCard({ req, tab, onRespond, onCancel }) {
         {req.supply_id && (
           <Link
             to={`/supplies/${req.supply_id}`}
-            className="flex items-center gap-2 mt-3 p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors group"
+            className="flex items-center gap-2 mt-3 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
           >
             <Package size={14} className="text-gray-400 flex-shrink-0" />
-            <span className="text-xs text-gray-600 font-medium truncate">Ver publicación del insumo</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium truncate">Ver publicación del insumo</span>
             <ChevronRight size={12} className="text-gray-400 ml-auto flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         )}
 
         {/* Message */}
         {req.message && (
-          <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100">
-            <p className="text-xs font-semibold text-blue-600 mb-1">Mensaje</p>
-            <p className="text-sm text-gray-700 leading-relaxed">{req.message}</p>
+          <div className="mt-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+            <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">Mensaje</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{req.message}</p>
           </div>
         )}
 
         {/* Response message */}
         {req.response_message && (
-          <div className="mt-2 p-3 rounded-xl bg-gray-50 border border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 mb-1">Respuesta</p>
-            <p className="text-sm text-gray-600 italic leading-relaxed">{req.response_message}</p>
+          <div className="mt-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Respuesta</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 italic leading-relaxed">{req.response_message}</p>
           </div>
         )}
 
@@ -141,8 +210,8 @@ function RequestCard({ req, tab, onRespond, onCancel }) {
 
         {/* Action buttons */}
         {!showReply && (
-          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50">
-            {/* Received + pending: show accept/reject */}
+          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-50 dark:border-gray-700/50 flex-wrap">
+            {/* Received + pending: respond */}
             {tab === 'received' && isPending && (
               <button
                 onClick={() => setShowReply(true)}
@@ -162,23 +231,53 @@ function RequestCard({ req, tab, onRespond, onCancel }) {
               </button>
             )}
 
-            {/* Accepted: link to chat */}
+            {/* Accepted: chat + complete (receiver only) */}
             {req.status === 'aceptada' && (
-              <Link
-                to={`/messages/${req.id}`}
-                className="flex-1 btn-medical text-xs flex items-center justify-center gap-1.5"
+              <>
+                <Link
+                  to={`/messages/${req.id}`}
+                  className="flex-1 btn-medical text-xs flex items-center justify-center gap-1.5"
+                >
+                  <MessageCircle size={13} /> Ir al chat
+                </Link>
+                {tab === 'received' && (
+                  <button
+                    onClick={() => onComplete(req.id)}
+                    className="flex-1 btn-success text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Archive size={13} /> Marcar entregado
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Completed: leave review */}
+            {req.status === 'completada' && canReview && (
+              <button
+                onClick={() => setShowReview(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs font-bold hover:bg-amber-100 transition-all"
               >
-                <MessageCircle size={13} /> Ir al chat
-              </Link>
+                <Star size={13} /> Dejar reseña
+              </button>
             )}
           </div>
         )}
       </div>
+
+      {showReview && (
+        <ReviewModal
+          req={req}
+          otherUser={otherUser}
+          onClose={() => setShowReview(false)}
+          onDone={() => { setShowReview(false); setCanReview(false); }}
+        />
+      )}
     </div>
   );
 }
 
 export default function Requests() {
+  const { user } = useAuth();
   const [tab, setTab] = useState('received');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -201,7 +300,7 @@ export default function Requests() {
 
   const handleRespond = async (id, status, message) => {
     try {
-      await requestsAPI.respond(id, { status, message: message || undefined });
+      await requestsAPI.respond(id, { status, response_message: message || undefined });
       toast.success(status === 'aceptada' ? '¡Solicitud aceptada! Ya pueden chatear.' : 'Solicitud rechazada');
       fetchRequests();
     } catch (err) {
@@ -220,13 +319,24 @@ export default function Requests() {
     }
   };
 
+  const handleComplete = async (id) => {
+    if (!window.confirm('¿Marcar esta solicitud como entregada? El insumo pasará a estado "Entregado".')) return;
+    try {
+      await requestsAPI.complete(id);
+      toast.success('¡Entrega marcada! El solicitante puede dejar una reseña.');
+      fetchRequests();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al marcar como entregado');
+    }
+  };
+
   const pendingCount = requests.filter((r) => r.status === 'pendiente').length;
 
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-gray-900">Solicitudes</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Gestiona las solicitudes de tus publicaciones</p>
+        <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Solicitudes</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Gestiona las solicitudes de tus publicaciones</p>
       </div>
 
       {/* Tabs */}
@@ -241,7 +351,7 @@ export default function Requests() {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               tab === key
                 ? 'bg-primary-600 text-white shadow-sm'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
             <Icon size={15} /> {label}
@@ -308,6 +418,8 @@ export default function Requests() {
               tab={tab}
               onRespond={handleRespond}
               onCancel={handleCancel}
+              onComplete={handleComplete}
+              currentUser={user}
             />
           ))}
         </div>

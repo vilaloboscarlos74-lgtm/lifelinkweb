@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
 import {
@@ -100,7 +100,12 @@ export default function CreateSupply() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
+  const [imageUrls, setImageUrls] = useState([]);
   const [dragOver, setDragOver] = useState(false);
+  const imageUrlsRef = useRef([]);
+
+  useEffect(() => { imageUrlsRef.current = imageUrls; }, [imageUrls]);
+  useEffect(() => () => imageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const [form, setForm] = useState({
     title: '',
@@ -131,9 +136,9 @@ export default function CreateSupply() {
     }
     if (s === 2) {
       if (!form.title.trim()) { toast.error('El título es obligatorio'); return false; }
-      if (form.title.trim().length < 5) { toast.error('El título debe tener al menos 5 caracteres'); return false; }
+      if (form.title.trim().length < 3) { toast.error('El título debe tener al menos 3 caracteres'); return false; }
       if (!form.description.trim()) { toast.error('La descripción es obligatoria'); return false; }
-      if (form.description.trim().length < 15) { toast.error('La descripción debe tener al menos 15 caracteres'); return false; }
+      if (form.description.trim().length < 10) { toast.error('La descripción debe tener al menos 10 caracteres'); return false; }
       if (form.supply_type === 'venta' && (!form.price || parseFloat(form.price) <= 0)) {
         toast.error('El precio es obligatorio para publicaciones de venta'); return false;
       }
@@ -150,7 +155,9 @@ export default function CreateSupply() {
     const valid = Array.from(files)
       .filter((f) => f.type.startsWith('image/'))
       .slice(0, 5 - images.length);
+    const urls = valid.map((f) => URL.createObjectURL(f));
     setImages((prev) => [...prev, ...valid]);
+    setImageUrls((prev) => [...prev, ...urls]);
   }, [images.length]);
 
   const handleImageInput = (e) => addImages(e.target.files);
@@ -161,7 +168,11 @@ export default function CreateSupply() {
     addImages(e.dataTransfer.files);
   };
 
-  const removeImage = (idx) => setImages((prev) => prev.filter((_, i) => i !== idx));
+  const removeImage = (idx) => {
+    URL.revokeObjectURL(imageUrls[idx]);
+    setImages((prev) => prev.filter((_, i) => i !== idx));
+    setImageUrls((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   // ── Submit ──
   const handleSubmit = async () => {
@@ -199,8 +210,8 @@ export default function CreateSupply() {
     <div className="space-y-8">
       {/* Supply type */}
       <div>
-        <label className="block text-base font-bold text-gray-900 mb-1">Tipo de publicación</label>
-        <p className="text-sm text-gray-500 mb-4">¿Qué quieres hacer con el insumo?</p>
+        <label className="block text-base font-bold text-gray-900 dark:text-gray-100 mb-1">Tipo de publicación</label>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">¿Qué quieres hacer con el insumo?</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {SUPPLY_TYPES.map((t) => (
             <button
@@ -228,8 +239,8 @@ export default function CreateSupply() {
 
       {/* Category */}
       <div>
-        <label className="block text-base font-bold text-gray-900 mb-1">Categoría</label>
-        <p className="text-sm text-gray-500 mb-4">¿Qué tipo de insumo médico es?</p>
+        <label className="block text-base font-bold text-gray-900 dark:text-gray-100 mb-1">Categoría</label>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">¿Qué tipo de insumo médico es?</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {CATEGORIES.map((cat) => (
             <button
@@ -290,8 +301,8 @@ export default function CreateSupply() {
           maxLength={1000}
           rows={5}
         />
-        {form.description.length > 0 && form.description.length < 15 && (
-          <p className="text-xs text-accent-500 mt-1">Mínimo 15 caracteres</p>
+        {form.description.length > 0 && form.description.length < 10 && (
+          <p className="text-xs text-accent-500 mt-1">Mínimo 10 caracteres</p>
         )}
       </div>
 
@@ -486,7 +497,7 @@ export default function CreateSupply() {
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-4">
             {images.map((img, i) => (
               <div key={i} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
-                <img src={URL.createObjectURL(img)} alt="" className="w-full h-full object-cover" />
+                <img src={imageUrls[i]} alt="" className="w-full h-full object-cover" />
                 {i === 0 && (
                   <div className="absolute bottom-0 left-0 right-0 bg-primary-600/80 text-white text-[9px] font-bold text-center py-0.5">
                     Principal
@@ -513,8 +524,8 @@ export default function CreateSupply() {
       </div>
 
       {/* Summary before publish */}
-      <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-        <p className="text-xs font-bold text-gray-600 mb-3 uppercase tracking-wide">Resumen de la publicación</p>
+      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-600">
+        <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-3 uppercase tracking-wide">Resumen de la publicación</p>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-500">Tipo</span>
@@ -566,8 +577,8 @@ export default function CreateSupply() {
             <Package size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 leading-tight">Publicar Insumo</h1>
-            <p className="text-gray-500 text-xs">Comparte un insumo médico con la comunidad</p>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-tight">Publicar Insumo</h1>
+            <p className="text-gray-500 dark:text-gray-400 text-xs">Comparte un insumo médico con la comunidad</p>
           </div>
         </div>
       </div>
@@ -575,15 +586,15 @@ export default function CreateSupply() {
       <StepIndicator current={step} />
 
       {/* Step content */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-card p-6 sm:p-8 mb-6 animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-card p-6 sm:p-8 mb-6 animate-fade-in">
         <div className="mb-6">
-          <h2 className="font-black text-gray-900 text-lg">
+          <h2 className="font-black text-gray-900 dark:text-gray-100 text-lg">
             {step === 1 && 'Tipo y categoría'}
             {step === 2 && 'Información del insumo'}
             {step === 3 && 'Detalles y ubicación'}
             {step === 4 && 'Imágenes y publicación'}
           </h2>
-          <p className="text-gray-400 text-sm mt-0.5">
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">
             {step === 1 && 'Define qué tipo de transacción deseas hacer'}
             {step === 2 && 'Describe el insumo con la mayor precisión posible'}
             {step === 3 && 'Agrega información adicional que ayude a los interesados'}

@@ -31,8 +31,8 @@ function InfoRow({ label, value }) {
   if (!value) return null;
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</span>
-      <span className="text-sm font-semibold text-gray-800">{value}</span>
+      <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{label}</span>
+      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{value}</span>
     </div>
   );
 }
@@ -101,26 +101,27 @@ export default function SupplyDetail() {
     if (navigator.share) {
       try { await navigator.share({ title: supply.title, url }); } catch { /* cancelled */ }
     } else {
-      await navigator.clipboard.writeText(url);
-      toast.success('Enlace copiado al portapapeles');
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Enlace copiado al portapapeles');
+      } catch {
+        toast.error('No se pudo copiar el enlace');
+      }
     }
   };
-
-  const prevImg = () => setCurrentImg((i) => (i - 1 + images.length) % images.length);
-  const nextImg = () => setCurrentImg((i) => (i + 1) % images.length);
 
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto">
-        <div className="h-8 w-24 bg-gray-100 rounded-lg mb-6 animate-pulse" />
+        <div className="h-8 w-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-6 animate-pulse" />
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-3 space-y-4">
-            <div className="aspect-[4/3] bg-gray-100 rounded-2xl animate-pulse" />
-            <div className="h-40 bg-gray-100 rounded-2xl animate-pulse" />
+            <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-700 rounded-2xl animate-pulse" />
+            <div className="h-40 bg-gray-100 dark:bg-gray-700 rounded-2xl animate-pulse" />
           </div>
           <div className="lg:col-span-2 space-y-4">
-            <div className="h-48 bg-gray-100 rounded-2xl animate-pulse" />
-            <div className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+            <div className="h-48 bg-gray-100 dark:bg-gray-700 rounded-2xl animate-pulse" />
+            <div className="h-32 bg-gray-100 dark:bg-gray-700 rounded-2xl animate-pulse" />
           </div>
         </div>
       </div>
@@ -129,9 +130,11 @@ export default function SupplyDetail() {
   if (!supply) return null;
 
   const images = supply.images || [];
+  const prevImg = () => setCurrentImg((i) => (i - 1 + images.length) % images.length);
+  const nextImg = () => setCurrentImg((i) => (i + 1) % images.length);
   const type = TYPE_LABELS[supply.supply_type] || { label: supply.supply_type, cls: 'badge' };
   const condition = CONDITION_LABELS[supply.condition];
-  const isOwner = user?.id === supply.owner.id;
+  const isOwner = user?.id === supply.owner?.id;
   const canContact = user && !isOwner && supply.status === 'disponible';
 
   return (
@@ -151,7 +154,7 @@ export default function SupplyDetail() {
         <div className="lg:col-span-3 space-y-4">
 
           {/* Image gallery */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-card overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card overflow-hidden">
             <div className="relative aspect-[4/3] bg-gray-50 group">
               {images.length > 0 ? (
                 <>
@@ -220,15 +223,15 @@ export default function SupplyDetail() {
           </div>
 
           {/* Description card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
-            <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-6">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
               <Tag size={16} className="text-primary-600" />
               Descripción
             </h2>
-            <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">{supply.description}</p>
+            <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-line">{supply.description}</p>
 
             {/* Specs grid */}
-            <div className="mt-6 border-t border-gray-50 pt-4">
+            <div className="mt-6 border-t border-gray-50 dark:border-gray-700 pt-4">
               <InfoRow label="Categoría" value={CATEGORY_LABELS[supply.category]} />
               <InfoRow label="Condición" value={condition?.label} />
               <InfoRow label="Marca" value={supply.brand} />
@@ -243,7 +246,7 @@ export default function SupplyDetail() {
         <div className="lg:col-span-2 space-y-4">
 
           {/* Price & title card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-6">
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <span className={type.cls}>{type.label}</span>
               {condition && (
@@ -251,7 +254,7 @@ export default function SupplyDetail() {
               )}
             </div>
 
-            <h1 className="text-xl font-black text-gray-900 leading-tight mb-3">{supply.title}</h1>
+            <h1 className="text-xl font-black text-gray-900 dark:text-gray-100 leading-tight mb-3">{supply.title}</h1>
 
             {supply.supply_type === 'venta' && supply.price ? (
               <div className="mb-4">
@@ -265,7 +268,7 @@ export default function SupplyDetail() {
             ) : null}
 
             {/* Meta row */}
-            <div className="flex items-center flex-wrap gap-3 text-xs text-gray-400 pt-3 border-t border-gray-50">
+            <div className="flex items-center flex-wrap gap-3 text-xs text-gray-400 pt-3 border-t border-gray-50 dark:border-gray-700">
               {supply.city && (
                 <span className="flex items-center gap-1">
                   <MapPin size={11} className="text-primary-500" />
@@ -306,26 +309,26 @@ export default function SupplyDetail() {
           </div>
 
           {/* Owner card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-5">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Publicado por</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-5">
+            <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">Publicado por</h3>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {supply.owner.avatar_url ? (
+                {supply.owner?.avatar_url ? (
                   <img src={supply.owner.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-lg font-black text-primary-700">
-                    {supply.owner.full_name?.charAt(0).toUpperCase()}
+                    {supply.owner?.full_name?.charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-gray-900 text-sm truncate">{supply.owner.full_name}</p>
-                <p className="text-xs text-gray-400">@{supply.owner.username}</p>
-                {supply.owner.rating_avg > 0 && (
+                <p className="font-bold text-gray-900 dark:text-gray-100 text-sm truncate">{supply.owner?.full_name}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">@{supply.owner?.username}</p>
+                {supply.owner?.rating_avg > 0 && (
                   <div className="flex items-center gap-1 mt-0.5">
                     <Star size={11} fill="#f59e0b" className="text-amber-400" />
                     <span className="text-xs font-semibold text-amber-600">
-                      {supply.owner.rating_avg.toFixed(1)}
+                      {supply.owner?.rating_avg?.toFixed(1)}
                     </span>
                   </div>
                 )}
@@ -335,8 +338,8 @@ export default function SupplyDetail() {
 
           {/* Contact card */}
           {canContact && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-5">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-5">
+              <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-3">
                 Contactar al proveedor
               </h3>
               <div className="relative mb-3">
@@ -373,8 +376,8 @@ export default function SupplyDetail() {
 
           {/* Owner's own supply */}
           {isOwner && (
-            <div className="bg-primary-50 rounded-2xl border border-primary-100 p-5">
-              <p className="text-xs font-bold text-primary-700 mb-2 flex items-center gap-1.5">
+            <div className="bg-primary-50 dark:bg-primary-900/20 rounded-2xl border border-primary-100 dark:border-primary-800/50 p-5">
+              <p className="text-xs font-bold text-primary-700 dark:text-primary-400 mb-2 flex items-center gap-1.5">
                 <Package size={14} /> Esta es tu publicación
               </p>
               <div className="flex gap-2">
@@ -390,10 +393,10 @@ export default function SupplyDetail() {
 
           {/* Not logged in */}
           {!user && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-5 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-5 text-center">
               <MessageCircle size={32} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-sm font-semibold text-gray-700 mb-1">¿Te interesa este insumo?</p>
-              <p className="text-xs text-gray-400 mb-4">Inicia sesión para contactar al proveedor</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">¿Te interesa este insumo?</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Inicia sesión para contactar al proveedor</p>
               <Link to="/login" className="btn-primary w-full block text-center">
                 Iniciar Sesión
               </Link>

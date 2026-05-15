@@ -80,7 +80,15 @@ export const requestsAPI = {
   getSent: () => api.get('/requests/sent'),
   getReceived: () => api.get('/requests/received'),
   respond: (id, data) => api.put(`/requests/${id}/respond`, data),
+  complete: (id) => api.put(`/requests/${id}/complete`),
   cancel: (id) => api.put(`/requests/${id}/cancel`),
+};
+
+// === REVIEWS ===
+export const reviewsAPI = {
+  create: (data) => api.post('/reviews/', data),
+  getForUser: (userId) => api.get(`/reviews/user/${userId}`),
+  canReview: (requestId) => api.get(`/reviews/can-review/${requestId}`),
 };
 
 // === NOTIFICATIONS ===

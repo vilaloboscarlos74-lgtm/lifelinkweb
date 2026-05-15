@@ -17,8 +17,8 @@ function ConversationItem({ conv, active }) {
   return (
     <Link
       to={`/messages/${conv.request_id}`}
-      className={`flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 hover:bg-gray-50 transition-colors relative ${
-        active ? 'bg-primary-50 border-l-[3px] border-l-primary-600' : ''
+      className={`flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors relative ${
+        active ? 'bg-primary-50 dark:bg-primary-900/20 border-l-[3px] border-l-primary-600' : ''
       }`}
     >
       <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -31,13 +31,13 @@ function ConversationItem({ conv, active }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <p className={`text-sm truncate ${conv.unread_count > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+          <p className={`text-sm truncate ${conv.unread_count > 0 ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-700 dark:text-gray-300'}`}>
             {conv.other_user.full_name}
           </p>
-          <span className="text-[10px] text-gray-400 flex-shrink-0">{time}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0">{time}</span>
         </div>
         <div className="flex items-center justify-between gap-1 mt-0.5">
-          <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+          <p className={`text-xs truncate ${conv.unread_count > 0 ? 'text-gray-700 dark:text-gray-300 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
             {conv.last_message || 'Sin mensajes aún'}
           </p>
           {conv.unread_count > 0 && (
@@ -57,7 +57,7 @@ function PendingRequestCard({ req, onRespond, responding }) {
   const isResponding = responding === req.id;
 
   return (
-    <div className="mx-3 mb-2 bg-white rounded-2xl border border-primary-100 shadow-sm overflow-hidden">
+    <div className="mx-3 mb-2 bg-white dark:bg-gray-800 rounded-2xl border border-primary-100 dark:border-primary-800/50 shadow-sm overflow-hidden">
       {/* Top bar */}
       <div className="h-1 bg-gradient-to-r from-primary-400 to-medical-400" />
 
@@ -72,8 +72,8 @@ function PendingRequestCard({ req, onRespond, responding }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-gray-900 truncate">{sender?.full_name}</p>
-            <p className="text-[10px] text-gray-400">@{sender?.username}</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{sender?.full_name}</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">@{sender?.username}</p>
           </div>
           <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 flex-shrink-0">
             <Clock size={9} /> Pendiente
@@ -84,19 +84,19 @@ function PendingRequestCard({ req, onRespond, responding }) {
         {req.supply_id && (
           <Link
             to={`/supplies/${req.supply_id}`}
-            className="flex items-center gap-1.5 mb-2 px-2 py-1.5 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="flex items-center gap-1.5 mb-2 px-2 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
-            <Package size={11} className="text-gray-400" />
-            <span className="text-[11px] text-gray-500 font-medium flex-1 truncate">Ver publicación del insumo</span>
+            <Package size={11} className="text-gray-400 dark:text-gray-500" />
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium flex-1 truncate">Ver publicación del insumo</span>
           </Link>
         )}
 
         {/* Message */}
         {req.message && (
-          <div className="mb-2.5 p-2 rounded-xl bg-blue-50 border border-blue-100">
-            <p className="text-[10px] font-semibold text-blue-500 mb-0.5">Mensaje</p>
-            <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">{req.message}</p>
+          <div className="mb-2.5 p-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
+            <p className="text-[10px] font-semibold text-blue-500 dark:text-blue-400 mb-0.5">Mensaje</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">{req.message}</p>
           </div>
         )}
 
@@ -116,7 +116,7 @@ function PendingRequestCard({ req, onRespond, responding }) {
           <button
             onClick={() => onRespond(req.id, 'rechazada')}
             disabled={isResponding}
-            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold transition-all disabled:opacity-60"
+            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-xs font-bold transition-all disabled:opacity-60"
           >
             <X size={12} /> Rechazar
           </button>
@@ -129,11 +129,11 @@ function PendingRequestCard({ req, onRespond, responding }) {
 function DateDivider({ date }) {
   return (
     <div className="flex items-center gap-3 my-5 px-2">
-      <div className="flex-1 h-px bg-gray-200" />
-      <span className="text-[11px] text-gray-400 font-semibold capitalize bg-gray-50 px-3 py-1 rounded-full">
+      <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+      <span className="text-[11px] text-gray-400 dark:text-gray-500 font-semibold capitalize bg-gray-50 dark:bg-gray-800 px-3 py-1 rounded-full">
         {date}
       </span>
-      <div className="flex-1 h-px bg-gray-200" />
+      <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
     </div>
   );
 }
@@ -147,12 +147,12 @@ function MessageBubble({ msg, isMine }) {
         <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words shadow-sm ${
           isMine
             ? `bg-primary-600 text-white rounded-br-sm ${msg._pending ? 'opacity-60' : ''}`
-            : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
+            : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-bl-sm'
         }`}>
           {msg.content}
         </div>
         <div className={`flex items-center gap-1 mt-1 px-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-          <span className="text-[10px] text-gray-400">{time}</span>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">{time}</span>
           {isMine && !msg._pending && (
             msg.is_read
               ? <CheckCheck size={11} className="text-primary-400" />
@@ -255,8 +255,10 @@ export default function Messages() {
       try {
         const r = await messagesAPI.getMessages(requestId);
         setMessages(r.data || []);
-      } catch {
-        navigate('/messages');
+      } catch (err) {
+        if (err.response?.status === 403 || err.response?.status === 404) {
+          navigate('/messages');
+        }
       }
     };
 
@@ -343,10 +345,10 @@ export default function Messages() {
 
   // ── SIDEBAR ──
   const Sidebar = (
-    <div className="flex flex-col h-full bg-white border-r border-gray-100">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-700">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-gray-100">
-        <h1 className="text-lg font-black text-gray-900 mb-3">Mensajes</h1>
+      <div className="px-4 pt-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+        <h1 className="text-lg font-black text-gray-900 dark:text-gray-100 mb-3">Mensajes</h1>
 
         {/* Tabs */}
         <div className="flex gap-1.5">
@@ -355,14 +357,14 @@ export default function Messages() {
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
               sidebarTab === 'chats'
                 ? 'bg-primary-600 text-white shadow-sm'
-                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <MessageCircle size={13} />
             Chats
             {conversations.length > 0 && (
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
-                sidebarTab === 'chats' ? 'bg-white/20' : 'bg-gray-200 text-gray-600'
+                sidebarTab === 'chats' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
               }`}>
                 {conversations.length}
               </span>
@@ -373,14 +375,14 @@ export default function Messages() {
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
               sidebarTab === 'requests'
                 ? 'bg-amber-500 text-white shadow-sm'
-                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             <InboxIcon size={13} />
             Solicitudes
             {pendingReqs.length > 0 && (
               <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${
-                sidebarTab === 'requests' ? 'bg-white/20' : 'bg-amber-100 text-amber-700'
+                sidebarTab === 'requests' ? 'bg-white/20' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
               }`}>
                 {pendingReqs.length}
               </span>
@@ -396,13 +398,13 @@ export default function Messages() {
         {sidebarTab === 'chats' && (
           <>
             {/* Search */}
-            <div className="px-3 py-2 border-b border-gray-50">
+            <div className="px-3 py-2 border-b border-gray-50 dark:border-gray-700/50">
               <div className="relative">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Buscar conversación..."
-                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-300/40 focus:border-primary-400"
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-300/40 focus:border-primary-400"
                   value={convSearch}
                   onChange={(e) => setConvSearch(e.target.value)}
                 />
@@ -413,21 +415,21 @@ export default function Messages() {
               <div className="p-4 space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex gap-3 items-center animate-pulse">
-                    <div className="w-11 h-11 rounded-2xl bg-gray-100 flex-shrink-0" />
+                    <div className="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-gray-700 flex-shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-3.5 bg-gray-100 rounded-lg w-2/3" />
-                      <div className="h-3 bg-gray-100 rounded-lg w-full" />
+                      <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-lg w-2/3" />
+                      <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-lg w-full" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : filteredConvs.length === 0 ? (
               <div className="text-center py-12 px-4">
-                <MessageCircle size={36} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-sm font-semibold text-gray-500">
+                <MessageCircle size={36} className="mx-auto text-gray-200 dark:text-gray-700 mb-3" />
+                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
                   {convSearch ? 'Sin resultados' : 'Sin conversaciones activas'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   {convSearch
                     ? 'Intenta otro nombre'
                     : 'Acepta una solicitud de la pestaña "Solicitudes" para comenzar a chatear'}
@@ -459,33 +461,33 @@ export default function Messages() {
             {pendingLoading ? (
               <div className="p-4 space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-gray-100 p-3 mx-3 animate-pulse">
+                  <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3 mx-3 animate-pulse">
                     <div className="flex gap-2 mb-2">
-                      <div className="w-9 h-9 rounded-xl bg-gray-100 flex-shrink-0" />
+                      <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-700 flex-shrink-0" />
                       <div className="flex-1 space-y-1.5">
-                        <div className="h-3 bg-gray-100 rounded w-2/3" />
-                        <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                        <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded w-2/3" />
+                        <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded w-1/3" />
                       </div>
                     </div>
-                    <div className="h-10 bg-gray-50 rounded-xl mb-2" />
+                    <div className="h-10 bg-gray-50 dark:bg-gray-700/50 rounded-xl mb-2" />
                     <div className="flex gap-1.5">
-                      <div className="flex-1 h-8 bg-gray-100 rounded-xl" />
-                      <div className="flex-1 h-8 bg-gray-100 rounded-xl" />
+                      <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-700 rounded-xl" />
+                      <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-700 rounded-xl" />
                     </div>
                   </div>
                 ))}
               </div>
             ) : pendingReqs.length === 0 ? (
               <div className="text-center py-12 px-4">
-                <InboxIcon size={36} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-sm font-semibold text-gray-500">Sin solicitudes pendientes</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <InboxIcon size={36} className="mx-auto text-gray-200 dark:text-gray-700 mb-3" />
+                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Sin solicitudes pendientes</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Aquí aparecerán las solicitudes de personas interesadas en tus publicaciones
                 </p>
               </div>
             ) : (
               <>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide px-4 mb-2">
+                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-4 mb-2">
                   {pendingReqs.length} solicitud{pendingReqs.length !== 1 ? 'es' : ''} esperando respuesta
                 </p>
                 {pendingReqs.map((req) => (
@@ -508,10 +510,10 @@ export default function Messages() {
   const ChatPanel = requestId ? (
     <div className="flex flex-col h-full">
       {/* Chat header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
         <Link
           to="/messages"
-          className="md:hidden w-8 h-8 rounded-xl hover:bg-gray-100 flex items-center justify-center text-gray-600 transition-colors"
+          className="md:hidden w-8 h-8 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-colors"
         >
           <ArrowLeft size={18} />
         </Link>
@@ -528,35 +530,35 @@ export default function Messages() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-gray-900 text-sm leading-tight truncate">
+              <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight truncate">
                 {activeConv.other_user.full_name}
               </p>
-              <p className="text-xs text-gray-400">@{activeConv.other_user.username}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">@{activeConv.other_user.username}</p>
             </div>
           </>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center">
-              <User size={18} className="text-gray-400" />
+            <div className="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <User size={18} className="text-gray-400 dark:text-gray-500" />
             </div>
-            <p className="font-bold text-gray-900 text-sm">Conversación</p>
+            <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">Conversación</p>
           </div>
         )}
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 bg-gray-50/60">
+      <div className="flex-1 overflow-y-auto px-4 py-2 bg-gray-50/60 dark:bg-gray-900/60">
         {msgLoading ? (
           <div className="flex justify-center py-12">
             <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-16 h-16 bg-primary-50 rounded-3xl flex items-center justify-center mb-4">
-              <MessageCircle size={28} className="text-primary-400" />
+            <div className="w-16 h-16 bg-primary-50 dark:bg-primary-900/20 rounded-3xl flex items-center justify-center mb-4">
+              <MessageCircle size={28} className="text-primary-400 dark:text-primary-500" />
             </div>
-            <p className="text-sm font-semibold text-gray-600">Comienza la conversación</p>
-            <p className="text-xs text-gray-400 mt-1">Envía el primer mensaje</p>
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Comienza la conversación</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Envía el primer mensaje</p>
           </div>
         ) : (
           <>
@@ -574,12 +576,12 @@ export default function Messages() {
       </div>
 
       {/* Input area */}
-      <div className="px-4 pt-3 pb-3 border-t border-gray-100 bg-white flex-shrink-0">
+      <div className="px-4 pt-3 pb-3 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
-              className="w-full px-4 py-2.5 text-sm rounded-2xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-400/30 focus:border-primary-400 focus:bg-white resize-none transition-all leading-relaxed"
+              className="w-full px-4 py-2.5 text-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-400/30 focus:border-primary-400 focus:bg-white dark:focus:bg-gray-800 resize-none transition-all leading-relaxed"
               placeholder="Escribe un mensaje..."
               value={newMsg}
               onChange={(e) => { setNewMsg(e.target.value); resizeTextarea(); }}
@@ -601,7 +603,7 @@ export default function Messages() {
             }
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1.5 px-1 flex items-center justify-between">
+        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 px-1 flex items-center justify-between">
           <span>Shift+Enter para nueva línea · Enter para enviar</span>
           {newMsg.length > 1800 && (
             <span className={newMsg.length > 1950 ? 'text-accent-500 font-semibold' : ''}>
@@ -612,18 +614,18 @@ export default function Messages() {
       </div>
     </div>
   ) : (
-    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/40">
-      <div className="w-24 h-24 bg-white rounded-4xl shadow-card flex items-center justify-center mb-5">
-        <MessageCircle size={40} className="text-primary-300" />
+    <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/40 dark:bg-gray-900/40">
+      <div className="w-24 h-24 bg-white dark:bg-gray-800 rounded-4xl shadow-card flex items-center justify-center mb-5">
+        <MessageCircle size={40} className="text-primary-300 dark:text-primary-600" />
       </div>
-      <h3 className="font-black text-gray-800 text-xl mb-2">Tus mensajes</h3>
-      <p className="text-gray-400 text-sm max-w-xs leading-relaxed">
+      <h3 className="font-black text-gray-800 dark:text-gray-200 text-xl mb-2">Tus mensajes</h3>
+      <p className="text-gray-400 dark:text-gray-500 text-sm max-w-xs leading-relaxed">
         Selecciona una conversación de la lista para leer y responder mensajes
       </p>
       {pendingReqs.length > 0 && (
         <button
           onClick={() => setSidebarTab('requests')}
-          className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold hover:bg-amber-100 transition-colors"
+          className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 text-amber-700 dark:text-amber-400 text-sm font-bold hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
         >
           <InboxIcon size={16} />
           {pendingReqs.length} solicitud{pendingReqs.length !== 1 ? 'es' : ''} pendiente{pendingReqs.length !== 1 ? 's' : ''}
@@ -643,7 +645,7 @@ export default function Messages() {
         }
       `}</style>
 
-      <div className="messages-root flex h-full border-t border-gray-100" style={{ height: 'calc(100dvh - 132px)' }}>
+      <div className="messages-root flex h-full border-t border-gray-100 dark:border-gray-700" style={{ height: 'calc(100dvh - 132px)' }}>
         {/* Sidebar */}
         <div className={`
           flex-shrink-0 md:w-80 border-r border-gray-100

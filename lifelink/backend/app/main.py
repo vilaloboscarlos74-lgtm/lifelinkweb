@@ -17,7 +17,8 @@ from app.routers import (
     requests,
     notifications,
     messages,
-    admin
+    admin,
+    reviews
 )
 
 settings = get_settings()
@@ -106,6 +107,7 @@ app.include_router(requests.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api")
 
 
 # ==========================================

@@ -142,6 +142,46 @@ def respond_request(
     ).filter(ContactRequest.id == req.id).first()
 
 
+@router.put("/{request_id}/complete", response_model=RequestResponse)
+def complete_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Marcar una solicitud aceptada como completada (entrega realizada)."""
+    from app.models.supply import SupplyStatus
+    req = db.query(ContactRequest).filter(
+        ContactRequest.id == request_id,
+        ContactRequest.status == RequestStatus.ACEPTADA,
+        ContactRequest.receiver_id == current_user.id
+    ).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada o no aceptada")
+
+    req.status = RequestStatus.COMPLETADA
+
+    if req.supply_id:
+        supply = db.query(Supply).filter(Supply.id == req.supply_id).first()
+        if supply:
+            supply.status = SupplyStatus.ENTREGADO
+
+    # Notificar al solicitante para que deje una reseña
+    notif = Notification(
+        user_id=req.sender_id,
+        type=NotificationType.SOLICITUD_ACEPTADA,
+        title="¡Entrega completada!",
+        content=f"{current_user.full_name} marcó la solicitud como entregada. ¿Quieres dejar una reseña?",
+        link=f"/requests"
+    )
+    db.add(notif)
+    db.commit()
+
+    return db.query(ContactRequest).options(
+        joinedload(ContactRequest.sender),
+        joinedload(ContactRequest.receiver)
+    ).filter(ContactRequest.id == req.id).first()
+
+
 @router.put("/{request_id}/cancel", response_model=RequestResponse)
 def cancel_request(
     request_id: int,

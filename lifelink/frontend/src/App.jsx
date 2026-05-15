@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -18,9 +19,11 @@ import Notifications from './pages/Notifications';
 import MySupplies from './pages/MySupplies';
 import Favorites from './pages/Favorites';
 import AdminDashboard from './pages/AdminDashboard';
+import BloodDonors from './pages/BloodDonors';
 
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <Router>
         <Toaster
@@ -43,6 +46,7 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/supplies" element={<Supplies />} />
             <Route path="/supplies/:id" element={<SupplyDetail />} />
+            <Route path="/donors" element={<BloodDonors />} />
 
             {/* Protegidas */}
             <Route path="/publish" element={<ProtectedRoute><CreateSupply /></ProtectedRoute>} />
@@ -68,5 +72,6 @@ export default function App() {
         </Layout>
       </Router>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
