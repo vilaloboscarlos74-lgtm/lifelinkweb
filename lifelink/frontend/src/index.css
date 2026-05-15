@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif;
+  background-color: #f3f8fc;
+  color: #1a2332;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-primary-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:bg-primary-700 active:scale-[0.97] transition-all duration-200
+           shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-primary-500/40;
+  }
+  .btn-secondary {
+    @apply bg-white text-primary-700 border border-primary-200 px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:bg-primary-50 hover:border-primary-300 active:scale-[0.97] transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary-300/40;
+  }
+  .btn-danger {
+    @apply bg-accent-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:bg-accent-700 active:scale-[0.97] transition-all duration-200 shadow-sm;
+  }
+  .btn-success {
+    @apply bg-success-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:bg-success-700 active:scale-[0.97] transition-all duration-200 shadow-sm;
+  }
+  .btn-medical {
+    @apply bg-medical-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm
+           hover:bg-medical-700 active:scale-[0.97] transition-all duration-200 shadow-sm;
+  }
+
+  /* ── Inputs ── */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm
+           focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500
+           placeholder:text-gray-400 transition-all duration-200;
+  }
+  .input-field:hover {
+    @apply border-gray-300;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-card
+           hover:shadow-card-hover transition-all duration-300;
+  }
+  .card-flat {
+    @apply bg-white rounded-2xl border border-gray-100;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-urgent {
+    @apply badge bg-accent-500 text-white;
+  }
+  .badge-available {
+    @apply badge bg-success-100 text-success-700;
+  }
+  .badge-donation {
+    @apply badge bg-medical-100 text-medical-700;
+  }
+  .badge-sale {
+    @apply badge bg-primary-100 text-primary-700;
+  }
+  .badge-exchange {
+    @apply badge bg-brand-100 text-brand-700;
+  }
+
+  /* ── Section title ── */
+  .section-title {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  .section-subtitle {
+    @apply text-gray-500 text-sm mt-1;
+  }
+
+  /* ── Skeleton loader ── */
+  .skeleton {
+    @apply bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100
+           bg-[length:1000px_100%] animate-shimmer rounded-xl;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c4d4e3; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a8be; }
+
+/* ── Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+@keyframes fadeInFast {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in-fast {
+  animation: fadeInFast 0.2s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.25s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* ── Leaflet overrides ── */
+.leaflet-container {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  border-radius: 1rem;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 0.875rem !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important;
+  border: 1px solid #e2e8f0;
+}
+.leaflet-popup-content {
+  margin: 10px 14px !important;
+  font-size: 13px;
+}
+.leaflet-popup-tip {
+  background: white !important;
+}
+.leaflet-control-attribution {
+  display: none !important;
+}
