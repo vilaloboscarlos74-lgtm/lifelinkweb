@@ -4,13 +4,18 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# Neon (and some providers) return postgres:// — SQLAlchemy requires postgresql://
+_db_url = settings.DATABASE_URL
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
 engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,       # verifica conexión antes de usarla
-    pool_size=10,             # conexiones persistentes
-    max_overflow=20,          # conexiones extra bajo carga
-    pool_timeout=30,          # espera máx 30s por una conexión libre
-    pool_recycle=1800,        # recicla conexiones cada 30 min (evita conexiones obsoletas)
+    _db_url,
+    pool_pre_ping=True,   # re-checks connection before use (important for Neon auto-pause)
+    pool_size=5,          # keep low — Neon free tier allows ~10 concurrent connections
+    max_overflow=5,
+    pool_timeout=30,
+    pool_recycle=1800,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

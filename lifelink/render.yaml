@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: lifelink-api
+    runtime: python
+    pythonVersion: "3.11.9"
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+    envVars:
+      - key: DATABASE_URL
+        sync: false              # set manually in Render dashboard (Neon URL)
+      - key: SECRET_KEY
+        generateValue: true      # Render generates a random secret
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: DEBUG
+        value: "false"
+      - key: ALLOWED_ORIGINS
+        sync: false              # set to your Vercel URL after deploy
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: MAX_FILE_SIZE
+        value: "5242880"
