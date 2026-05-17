@@ -1,112 +1,144 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import SupplyCard from '../components/SupplyCard';
 import {
   Search, SlidersHorizontal, X, Map, LayoutGrid,
-  ChevronLeft, ChevronRight, AlertCircle,
+  ChevronLeft, ChevronRight, AlertCircle, Train,
 } from 'lucide-react';
 
-const SupplyMap = lazy(() => import('../components/SupplyMap'));
+const SupplyMap       = lazy(() => import('../components/SupplyMap'));
+const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
 const CATEGORIES = [
   { value: '', label: 'Todas' },
-  { value: 'ortopedico', label: 'Ortopédico' },
-  { value: 'rehabilitacion', label: 'Rehabilitación' },
-  { value: 'diagnostico', label: 'Diagnóstico' },
-  { value: 'protesis', label: 'Prótesis' },
-  { value: 'mobiliario', label: 'Mobiliario' },
-  { value: 'consumibles', label: 'Consumibles' },
-  { value: 'sangre', label: 'Sangre' },
-  { value: 'otro', label: 'Otros' },
+  { value: 'ortopedico',    label: 'Ortopédico' },
+  { value: 'rehabilitacion',label: 'Rehabilitación' },
+  { value: 'diagnostico',   label: 'Diagnóstico' },
+  { value: 'protesis',      label: 'Prótesis' },
+  { value: 'mobiliario',    label: 'Mobiliario' },
+  { value: 'consumibles',   label: 'Consumibles' },
+  { value: 'sangre',        label: 'Sangre' },
+  { value: 'otro',          label: 'Otros' },
 ];
+
+const CONDITION_LABELS = {
+  nuevo: 'Nuevo', seminuevo: 'Seminuevo',
+  usado_buen_estado: 'Buen estado', usado: 'Usado',
+};
 
 export default function Supplies() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [supplies, setSupplies] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'map'
 
-  const [filters, setFilters] = useState({
-    query: searchParams.get('query') || '',
-    category: searchParams.get('category') || '',
-    supply_type: searchParams.get('supply_type') || '',
-    condition: searchParams.get('condition') || '',
-    is_urgent: searchParams.get('is_urgent') || '',
-    city: searchParams.get('city') || '',
-    sort_by: 'created_at',
-    order: 'desc',
-  });
+  /* ── Filters — derived from URL ──────────────────────── */
+  const getParam = (k, def = '') => searchParams.get(k) || def;
+  const urlFilters = {
+    query:       getParam('query'),
+    category:    getParam('category'),
+    supply_type: getParam('supply_type'),
+    condition:   getParam('condition'),
+    is_urgent:   getParam('is_urgent'),
+    city:        getParam('city'),
+    sort_by:     getParam('sort_by', 'created_at'),
+    order:       getParam('order', 'desc'),
+  };
 
-  // For map view we load more items (up to 100)
+  /* Local query input (only committed on submit) */
+  const [queryInput, setQueryInput] = useState(urlFilters.query);
+
+  /* ── Results state ───────────────────────────────────── */
+  const [supplies,    setSupplies]    = useState([]);
+  const [total,       setTotal]       = useState(0);
+  const [page,        setPage]        = useState(1);
+  const [pages,       setPages]       = useState(1);
+  const [loading,     setLoading]     = useState(true);
+
+  /* ── Map state ───────────────────────────────────────── */
+  const [viewMode,    setViewMode]    = useState('grid');
+  const [mapTab,      setMapTab]      = useState('supplies'); // 'supplies' | 'meeting'
   const [mapSupplies, setMapSupplies] = useState([]);
-  const [mapLoading, setMapLoading] = useState(false);
+  const [mapLoading,  setMapLoading]  = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const fetchSupplies = async (p = 1, overrideFilters = null) => {
+  /* ── Helpers to update URL params ────────────────────── */
+  const setFilter = useCallback((key, value) => {
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (value) p.set(key, value);
+      else p.delete(key);
+      p.delete('page'); // reset to page 1
+      return p;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const clearFilters = useCallback(() => {
+    setQueryInput('');
+    setSearchParams({}, { replace: true });
+  }, [setSearchParams]);
+
+  /* ── Fetch grid supplies ─────────────────────────────── */
+  const fetchSupplies = useCallback(async (p = 1) => {
     setLoading(true);
     try {
       const params = { page: p, limit: 12 };
-      const active = overrideFilters ?? filters;
-      Object.entries(active).forEach(([k, v]) => { if (v) params[k] = v; });
+      Object.entries(urlFilters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await suppliesAPI.list(params);
-      setSupplies(res.data.items);
-      setTotal(res.data.total);
-      setPages(res.data.pages);
+      setSupplies(res.data.items || []);
+      setTotal(res.data.total || 0);
+      setPages(res.data.pages || 1);
       setPage(p);
     } catch {
       toast.error('Error al cargar insumos');
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
 
-  const fetchMapSupplies = async () => {
+  /* ── Fetch map supplies ──────────────────────────────── */
+  const fetchMapSupplies = useCallback(async () => {
     setMapLoading(true);
     try {
       const params = { limit: 100 };
-      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      Object.entries(urlFilters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = await suppliesAPI.list(params);
       setMapSupplies(res.data.items || []);
-    } catch {
-      // map view failure doesn't need a toast — grid is still usable
-    } finally {
+    } catch { /* silent */ } finally {
       setMapLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
 
-  useEffect(() => { fetchSupplies(); }, []);
+  /* ── Re-fetch when URL params change ─────────────────── */
+  useEffect(() => {
+    fetchSupplies(1);
+    setQueryInput(getParam('query'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
 
+  /* ── Also re-fetch map when filters change ───────────── */
+  useEffect(() => {
+    if (viewMode === 'map' && mapTab === 'supplies') fetchMapSupplies();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString(), viewMode, mapTab]);
+
+  /* ── Submit text search ──────────────────────────────── */
   const handleSearch = (e) => {
     e?.preventDefault();
-    const params = {};
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v && !['sort_by', 'order'].includes(k)) params[k] = v;
-    });
-    setSearchParams(params, { replace: true });
-    fetchSupplies(1);
+    setFilter('query', queryInput.trim());
   };
 
+  /* ── Switch to map view ──────────────────────────────── */
   const handleMapView = () => {
     setViewMode('map');
     fetchMapSupplies();
   };
 
-  const clearFilters = () => {
-    const clean = { query: '', category: '', supply_type: '', condition: '', is_urgent: '', city: '', sort_by: 'created_at', order: 'desc' };
-    setFilters(clean);
-    setSearchParams({});
-    fetchSupplies(1, clean);
-  };
+  const activeFilterCount = ['query','category','supply_type','condition','is_urgent','city']
+    .filter((k) => urlFilters[k]).length;
 
-  const activeFilterCount = Object.entries(filters).filter(
-    ([k, v]) => v && !['sort_by', 'order'].includes(k)
-  ).length;
-
+  /* ─────────────────────────────────────────────────────── */
   return (
     <div>
       {/* Header */}
@@ -118,12 +150,11 @@ export default function Supplies() {
           </p>
         </div>
 
-        {/* View toggle */}
         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-1">
           <button
             onClick={() => setViewMode('grid')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'grid' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              viewMode === 'grid' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <LayoutGrid size={15} /> Lista
@@ -131,7 +162,7 @@ export default function Supplies() {
           <button
             onClick={viewMode === 'map' ? () => setViewMode('grid') : handleMapView}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              viewMode === 'map' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              viewMode === 'map' ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
             <Map size={15} /> Mapa
@@ -147,8 +178,8 @@ export default function Supplies() {
             type="text"
             placeholder="Buscar por nombre, marca, ciudad..."
             className="input-field pl-10"
-            value={filters.query}
-            onChange={(e) => setFilters({ ...filters, query: e.target.value })}
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
           />
         </div>
         <button type="submit" className="btn-primary whitespace-nowrap">Buscar</button>
@@ -173,15 +204,15 @@ export default function Supplies() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Categoría</label>
-              <select className="input-field text-sm" value={filters.category}
-                onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
+              <select className="input-field text-sm" value={urlFilters.category}
+                onChange={(e) => setFilter('category', e.target.value)}>
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Tipo</label>
-              <select className="input-field text-sm" value={filters.supply_type}
-                onChange={(e) => setFilters({ ...filters, supply_type: e.target.value })}>
+              <select className="input-field text-sm" value={urlFilters.supply_type}
+                onChange={(e) => setFilter('supply_type', e.target.value)}>
                 <option value="">Todos</option>
                 <option value="donacion">Donación</option>
                 <option value="venta">Venta</option>
@@ -190,84 +221,84 @@ export default function Supplies() {
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Ciudad</label>
-              <input type="text" className="input-field text-sm" placeholder="Ej: Guadalajara"
-                value={filters.city} onChange={(e) => setFilters({ ...filters, city: e.target.value })} />
+              <form onSubmit={(e) => { e.preventDefault(); setFilter('city', e.target.city.value); }}>
+                <input name="city" type="text" className="input-field text-sm" placeholder="Ej: CDMX"
+                  defaultValue={urlFilters.city}
+                  onBlur={(e) => setFilter('city', e.target.value)} />
+              </form>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Condición</label>
-              <select className="input-field text-sm" value={filters.condition}
-                onChange={(e) => setFilters({ ...filters, condition: e.target.value })}>
+              <select className="input-field text-sm" value={urlFilters.condition}
+                onChange={(e) => setFilter('condition', e.target.value)}>
                 <option value="">Todas</option>
                 <option value="nuevo">Nuevo</option>
                 <option value="seminuevo">Seminuevo</option>
-                <option value="usado_buen_estado">Usado - buen estado</option>
+                <option value="usado_buen_estado">Buen estado</option>
                 <option value="usado">Usado</option>
               </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Urgencia</label>
-              <select className="input-field text-sm" value={filters.is_urgent}
-                onChange={(e) => setFilters({ ...filters, is_urgent: e.target.value })}>
+              <select className="input-field text-sm" value={urlFilters.is_urgent}
+                onChange={(e) => setFilter('is_urgent', e.target.value)}>
                 <option value="">Todos</option>
                 <option value="true">Solo urgentes</option>
               </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Ordenar por</label>
-              <select className="input-field text-sm" value={filters.sort_by}
-                onChange={(e) => setFilters({ ...filters, sort_by: e.target.value })}>
+              <select className="input-field text-sm" value={urlFilters.sort_by}
+                onChange={(e) => setFilter('sort_by', e.target.value)}>
                 <option value="created_at">Más recientes</option>
                 <option value="price">Precio</option>
                 <option value="views_count">Más vistos</option>
               </select>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleSearch} className="btn-primary text-xs">Aplicar filtros</button>
-            <button onClick={clearFilters} className="btn-secondary text-xs flex items-center gap-1">
-              <X size={13} /> Limpiar filtros
-            </button>
-          </div>
+          <button onClick={clearFilters} className="btn-secondary text-xs flex items-center gap-1">
+            <X size={13} /> Limpiar todos los filtros
+          </button>
         </div>
       )}
 
-      {/* Active filter chips */}
+      {/* Active filter chips — clicking X auto-re-fetches via URL update */}
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {filters.query && (
+          {urlFilters.query && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              "{filters.query}"
-              <button onClick={() => setFilters({ ...filters, query: '' })}><X size={11} /></button>
+              "{urlFilters.query}"
+              <button onClick={() => setFilter('query', '')}><X size={11} /></button>
             </span>
           )}
-          {filters.category && (
+          {urlFilters.category && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              {CATEGORIES.find((c) => c.value === filters.category)?.label}
-              <button onClick={() => setFilters({ ...filters, category: '' })}><X size={11} /></button>
+              {CATEGORIES.find((c) => c.value === urlFilters.category)?.label}
+              <button onClick={() => setFilter('category', '')}><X size={11} /></button>
             </span>
           )}
-          {filters.supply_type && (
+          {urlFilters.supply_type && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              {filters.supply_type === 'donacion' ? 'Donación' : filters.supply_type === 'venta' ? 'Venta' : 'Intercambio'}
-              <button onClick={() => setFilters({ ...filters, supply_type: '' })}><X size={11} /></button>
+              {{ donacion: 'Donación', venta: 'Venta', intercambio: 'Intercambio' }[urlFilters.supply_type]}
+              <button onClick={() => setFilter('supply_type', '')}><X size={11} /></button>
             </span>
           )}
-          {filters.condition && (
+          {urlFilters.condition && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              {{ nuevo: 'Nuevo', seminuevo: 'Seminuevo', usado_buen_estado: 'Buen estado', usado: 'Usado' }[filters.condition] ?? filters.condition}
-              <button onClick={() => setFilters({ ...filters, condition: '' })}><X size={11} /></button>
+              {CONDITION_LABELS[urlFilters.condition] ?? urlFilters.condition}
+              <button onClick={() => setFilter('condition', '')}><X size={11} /></button>
             </span>
           )}
-          {filters.city && (
+          {urlFilters.city && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              📍 {filters.city}
-              <button onClick={() => setFilters({ ...filters, city: '' })}><X size={11} /></button>
+              📍 {urlFilters.city}
+              <button onClick={() => setFilter('city', '')}><X size={11} /></button>
             </span>
           )}
-          {filters.is_urgent && (
+          {urlFilters.is_urgent && (
             <span className="inline-flex items-center gap-1.5 bg-accent-50 text-accent-700 border border-accent-200 px-3 py-1 rounded-full text-xs font-medium">
               🚨 Urgentes
-              <button onClick={() => setFilters({ ...filters, is_urgent: '' })}><X size={11} /></button>
+              <button onClick={() => setFilter('is_urgent', '')}><X size={11} /></button>
             </span>
           )}
         </div>
@@ -276,26 +307,71 @@ export default function Supplies() {
       {/* MAP VIEW */}
       {viewMode === 'map' && (
         <div className="mb-6 animate-fade-in">
-          {mapLoading ? (
-            <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
+          {/* Map sub-tabs */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setMapTab('supplies')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                mapTab === 'supplies'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Map size={15} /> Mapa de insumos
+            </button>
+            <button
+              onClick={() => setMapTab('meeting')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                mapTab === 'meeting'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Train size={15} /> Puntos de encuentro
+            </button>
+          </div>
+
+          {mapTab === 'supplies' ? (
+            mapLoading ? (
+              <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <Suspense fallback={
+                <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <p className="text-gray-500 text-sm">Cargando mapa...</p>
+                </div>
+              }>
+                <SupplyMap supplies={mapSupplies} height="500px" />
+              </Suspense>
+            )
           ) : (
             <Suspense fallback={
               <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
+                <p className="text-gray-500 text-sm">Cargando mapa...</p>
               </div>
             }>
-              <SupplyMap supplies={mapSupplies} height="500px" />
+              <MeetingPointsMap height="500px" showLegend />
             </Suspense>
           )}
+
           <p className="text-xs text-gray-400 mt-2 text-center flex items-center justify-center gap-1">
-            <AlertCircle size={11} />
-            Solo se muestran insumos en ciudades reconocidas. Haz clic en un marcador para ver detalles.
+            {mapTab === 'supplies' ? (
+              <><AlertCircle size={11} /> Solo se muestran insumos con ciudad registrada. Haz clic en un marcador para ver detalles.</>
+            ) : (
+              <><Train size={11} /> 34 puntos de intercambio seguros en CDMX y Estado de México — metro y hospitales.</>
+            )}
           </p>
+          {mapTab === 'meeting' && (
+            <div className="text-center mt-2">
+              <Link to="/puntos-encuentro" className="text-xs text-primary-600 font-semibold hover:underline">
+                Ver lista completa de puntos de encuentro →
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -330,13 +406,12 @@ export default function Supplies() {
             {supplies.map((s) => <SupplyCard key={s.id} supply={s} />)}
           </div>
 
-          {/* Pagination */}
           {pages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-10">
               <button
                 onClick={() => fetchSupplies(page - 1)}
                 disabled={page === 1}
-                className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -348,24 +423,20 @@ export default function Supplies() {
                 else if (page >= pages - 3) p = pages - 6 + i;
                 else p = page - 3 + i;
                 return (
-                  <button
-                    key={p}
-                    onClick={() => fetchSupplies(p)}
+                  <button key={p} onClick={() => fetchSupplies(p)}
                     className={`w-9 h-9 rounded-xl text-sm font-semibold transition-all ${
                       page === p
                         ? 'bg-primary-600 text-white shadow-sm'
                         : 'border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
-                  >
-                    {p}
-                  </button>
+                  >{p}</button>
                 );
               })}
 
               <button
                 onClick={() => fetchSupplies(page + 1)}
                 disabled={page === pages}
-                className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronRight size={16} />
               </button>
