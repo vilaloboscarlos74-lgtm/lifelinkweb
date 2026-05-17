@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { requestsAPI, reviewsAPI } from '../services/api';
+import { requestsAPI, reviewsAPI, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
   Send, Inbox, Check, X, Clock, User, MessageCircle,
@@ -118,7 +118,7 @@ function RequestCard({ req, tab, onRespond, onCancel, onComplete, currentUser })
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
               {otherUser?.avatar_url ? (
-                <img src={otherUser.avatar_url} alt="" className="w-full h-full object-cover" />
+                <img src={getMediaUrl(otherUser.avatar_url)} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-sm font-black text-primary-700">
                   {otherUser?.full_name?.charAt(0).toUpperCase()}

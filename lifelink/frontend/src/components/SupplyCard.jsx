@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Eye, Clock, AlertTriangle, Heart, Tag } from 'lucide-react';
+import { getMediaUrl } from '../services/api';
 
 const TYPE_LABELS = {
   donacion:   { label: 'Donación',    cls: 'badge-donation' },
@@ -49,7 +50,7 @@ export default function SupplyCard({ supply, onFavorite }) {
       <div className={`relative aspect-[4/3] overflow-hidden ${!primaryImage ? catBg : 'bg-gray-100 dark:bg-gray-700'}`}>
         {primaryImage ? (
           <img
-            src={primaryImage.image_url}
+            src={getMediaUrl(primaryImage.image_url)}
             alt={supply.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
@@ -130,7 +131,7 @@ export default function SupplyCard({ supply, onFavorite }) {
         <div className="flex items-center gap-2 mt-2.5">
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-100 to-medical-100 dark:from-primary-900 dark:to-medical-900 flex items-center justify-center text-[10px] font-bold text-primary-700 dark:text-primary-300 overflow-hidden flex-shrink-0">
             {supply.owner?.avatar_url ? (
-              <img src={supply.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(supply.owner.avatar_url)} alt="" className="w-full h-full object-cover" />
             ) : (
               supply.owner?.full_name?.[0]?.toUpperCase()
             )}

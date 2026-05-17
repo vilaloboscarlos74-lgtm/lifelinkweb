@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { notificationsAPI, requestsAPI } from '../services/api';
+import { notificationsAPI, requestsAPI, getMediaUrl } from '../services/api';
 import {
   Menu, X, Heart, Bell, MessageCircle, Search, Plus, User,
   LogOut, LayoutDashboard, Package, ChevronDown, Home, Sun, Moon, Droplets,
@@ -162,7 +162,7 @@ export default function Navbar() {
                     >
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden shadow-sm">
                         {user.avatar_url ? (
-                          <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                          <img src={getMediaUrl(user.avatar_url)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-sm font-bold text-primary-700">
                             {user.full_name?.[0]?.toUpperCase()}
@@ -250,7 +250,7 @@ export default function Navbar() {
               <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden">
                   {user.avatar_url
-                    ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ? <img src={getMediaUrl(user.avatar_url)} alt="" className="w-full h-full object-cover" />
                     : <span className="text-sm font-bold text-primary-700">{user.full_name?.[0]?.toUpperCase()}</span>
                   }
                 </div>

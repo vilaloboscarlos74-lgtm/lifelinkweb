@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI } from '../services/api';
+import { suppliesAPI, getMediaUrl } from '../services/api';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
   MapPin, Package, HandHeart, CheckCircle, ChevronRight,
@@ -61,7 +61,7 @@ function ProductCard({ supply }) {
       {/* Image */}
       <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
         {img ? (
-          <img src={img.image_url} alt={supply.title}
+          <img src={getMediaUrl(img.image_url)} alt={supply.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl opacity-40">

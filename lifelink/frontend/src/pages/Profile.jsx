@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { usersAPI, reviewsAPI } from '../services/api';
+import { usersAPI, reviewsAPI, getMediaUrl } from '../services/api';
 import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
@@ -209,7 +209,7 @@ export default function Profile() {
         <div className="relative flex-shrink-0">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden">
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(user.avatar_url)} alt="" className="w-full h-full object-cover" />
             ) : (
               <span className="text-2xl font-black text-primary-700">
                 {user?.full_name?.charAt(0).toUpperCase()}
@@ -384,7 +384,7 @@ export default function Profile() {
               <div key={r.id} className="flex gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {r.reviewer?.avatar_url ? (
-                    <img src={r.reviewer.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(r.reviewer.avatar_url)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-sm font-black text-primary-700">
                       {r.reviewer?.full_name?.charAt(0).toUpperCase()}

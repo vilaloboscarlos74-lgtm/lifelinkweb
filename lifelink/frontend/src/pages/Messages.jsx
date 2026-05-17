@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { messagesAPI, requestsAPI } from '../services/api';
+import { messagesAPI, requestsAPI, getMediaUrl } from '../services/api';
 import {
   Send, ArrowLeft, MessageCircle, User, Search, Check, CheckCheck,
   Clock, Package, X, InboxIcon,
@@ -23,7 +23,7 @@ function ConversationItem({ conv, active }) {
     >
       <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
         {conv.other_user.avatar_url ? (
-          <img src={conv.other_user.avatar_url} alt="" className="w-full h-full object-cover" />
+          <img src={getMediaUrl(conv.other_user.avatar_url)} alt="" className="w-full h-full object-cover" />
         ) : (
           <span className="text-sm font-black text-primary-700">{initials}</span>
         )}
@@ -66,7 +66,7 @@ function PendingRequestCard({ req, onRespond, responding }) {
         <div className="flex items-center gap-2.5 mb-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
             {sender?.avatar_url ? (
-              <img src={sender.avatar_url} alt="" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(sender.avatar_url)} alt="" className="w-full h-full object-cover" />
             ) : (
               <span className="text-sm font-black text-primary-700">{initials}</span>
             )}
@@ -522,7 +522,7 @@ export default function Messages() {
           <>
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
               {activeConv.other_user.avatar_url ? (
-                <img src={activeConv.other_user.avatar_url} alt="" className="w-full h-full object-cover" />
+                <img src={getMediaUrl(activeConv.other_user.avatar_url)} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-sm font-black text-primary-700">
                   {activeConv.other_user.full_name?.charAt(0).toUpperCase()}

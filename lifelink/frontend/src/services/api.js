@@ -7,6 +7,15 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Converts /uploads/... relative paths to full backend URLs.
+// In dev the Vite proxy handles it; in production we prepend the Railway origin.
+const _apiOrigin = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/api$/, '');
+export const getMediaUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `${_apiOrigin}${path}`;
+};
+
 // Interceptor: agregar token a cada request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { usersAPI } from '../services/api';
+import { usersAPI, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
   Droplets, Search, MapPin, Star, Shield, User,
@@ -41,7 +41,7 @@ function DonorCard({ donor }) {
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center overflow-hidden">
             {donor.avatar_url ? (
-              <img src={donor.avatar_url} alt="" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(donor.avatar_url)} alt="" className="w-full h-full object-cover" />
             ) : (
               <span className="text-white font-black text-lg">
                 {donor.full_name?.charAt(0).toUpperCase()}

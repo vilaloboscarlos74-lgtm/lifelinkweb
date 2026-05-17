@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { suppliesAPI } from '../services/api';
+import { suppliesAPI, getMediaUrl } from '../services/api';
 import {
   Plus, Package, Eye, Trash2, ExternalLink,
   AlertTriangle, CheckCircle, Clock, Archive, XCircle,
@@ -139,7 +139,7 @@ function SupplyManageCard({ supply, onDelete, onStatusChange }) {
       <div className="relative aspect-[16/9] bg-gray-50 dark:bg-gray-700/40 overflow-hidden flex-shrink-0">
         {primaryImage ? (
           <img
-            src={primaryImage.image_url}
+            src={getMediaUrl(primaryImage.image_url)}
             alt={supply.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />

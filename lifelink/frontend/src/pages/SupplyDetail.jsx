@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI, requestsAPI } from '../services/api';
+import { suppliesAPI, requestsAPI, getMediaUrl } from '../services/api';
 import {
   MapPin, User, Star, Clock, Eye, Heart, Send, ArrowLeft,
   AlertTriangle, Package, Tag, ChevronLeft, ChevronRight,
@@ -159,7 +159,7 @@ export default function SupplyDetail() {
               {images.length > 0 ? (
                 <>
                   <img
-                    src={images[currentImg]?.image_url}
+                    src={getMediaUrl(images[currentImg]?.image_url)}
                     alt={supply.title}
                     className="w-full h-full object-contain"
                   />
@@ -215,7 +215,7 @@ export default function SupplyDetail() {
                       i === currentImg ? 'border-primary-500 shadow-sm' : 'border-transparent opacity-50 hover:opacity-80'
                     }`}
                   >
-                    <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(img.image_url)} alt="" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -314,7 +314,7 @@ export default function SupplyDetail() {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {supply.owner?.avatar_url ? (
-                  <img src={supply.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                  <img src={getMediaUrl(supply.owner.avatar_url)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-lg font-black text-primary-700">
                     {supply.owner?.full_name?.charAt(0).toUpperCase()}
