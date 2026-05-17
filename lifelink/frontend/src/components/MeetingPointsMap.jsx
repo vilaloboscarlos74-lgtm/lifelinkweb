@@ -98,10 +98,14 @@ export default function MeetingPointsMap({
   height = '520px',
   filter = 'all',       // 'all' | 'metro_cdmx' | 'metro_edomex' | 'hospital'
   showLegend = true,
+  onSelectPoint = null, // (point) => void — si se proporciona, clic en marcador llama este callback
 }) {
-  const mapRef        = useRef(null);
-  const leafletMapRef = useRef(null);
-  const markersRef    = useRef([]);
+  const mapRef           = useRef(null);
+  const leafletMapRef    = useRef(null);
+  const markersRef       = useRef([]);
+  const onSelectPointRef = useRef(onSelectPoint);
+
+  useEffect(() => { onSelectPointRef.current = onSelectPoint; }, [onSelectPoint]);
 
   useEffect(() => {
     const init = async () => {
@@ -141,6 +145,7 @@ export default function MeetingPointsMap({
         const popup  = buildPopup(point);
         const marker = L.marker(point.coords, { icon }).addTo(map);
         marker.bindPopup(popup, { maxWidth: 260, className: 'll-popup' });
+        marker.on('click', () => { if (onSelectPointRef.current) onSelectPointRef.current(point); });
         markersRef.current.push(marker);
       }
     };

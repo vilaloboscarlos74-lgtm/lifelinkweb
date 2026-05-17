@@ -1,21 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
+import { MEETING_POINTS, TYPE_CONFIG as POINT_TYPE_CONFIG } from '../data/meetingPoints';
 import {
   Plus, Upload, X, AlertTriangle, ChevronRight, ChevronLeft,
   Package, Tag, MapPin, ImagePlus, CheckCircle2, DollarSign,
+  Search as SearchIcon, Train,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const MEXICO_STATES = [
-  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
-  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
-  'Colima', 'Durango', 'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco',
-  'México', 'Michoacán de Ocampo', 'Morelos', 'Nayarit', 'Nuevo León',
-  'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí',
-  'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz',
-  'Yucatán', 'Zacatecas',
-];
+const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
 const CATEGORIES = [
   { value: 'ortopedico',    icon: '🦴', label: 'Ortopédico',    desc: 'Sillas, muletas, bastones' },
@@ -35,7 +29,6 @@ const SUPPLY_TYPES = [
     label: 'Donación',
     desc: 'Regalas el insumo sin costo',
     color: 'border-medical-400 bg-medical-50 text-medical-700',
-    badge: 'badge-donation',
   },
   {
     value: 'venta',
@@ -43,7 +36,6 @@ const SUPPLY_TYPES = [
     label: 'Venta',
     desc: 'Lo vendes a precio justo',
     color: 'border-primary-400 bg-primary-50 text-primary-700',
-    badge: 'badge-sale',
   },
   {
     value: 'intercambio',
@@ -51,7 +43,6 @@ const SUPPLY_TYPES = [
     label: 'Intercambio',
     desc: 'Lo cambias por otro insumo',
     color: 'border-brand-400 bg-brand-50 text-brand-700',
-    badge: 'badge-exchange',
   },
 ];
 
@@ -63,6 +54,15 @@ const CONDITIONS = [
 ];
 
 const STEPS = ['Tipo', 'Información', 'Detalles', 'Imágenes'];
+
+/* Devuelve el estado (entidad federativa) de un punto de encuentro */
+function getPointState(point) {
+  if (point.type === 'metro_edomex') return 'Estado de México';
+  if (point.type === 'metro_cdmx') return 'Ciudad de México';
+  return /Estado de México|EDOMEX|Naucalpan|Ecatepec|Nezahualcóyotl|Tlalnepantla/i.test(point.address)
+    ? 'Estado de México'
+    : 'Ciudad de México';
+}
 
 function StepIndicator({ current }) {
   return (
@@ -104,6 +104,11 @@ export default function CreateSupply() {
   const [dragOver, setDragOver] = useState(false);
   const imageUrlsRef = useRef([]);
 
+  /* Meeting point picker state */
+  const [selectedPoint, setSelectedPoint] = useState(null);
+  const [pointSearch, setPointSearch] = useState('');
+  const [showPickerMap, setShowPickerMap] = useState(false);
+
   useEffect(() => { imageUrlsRef.current = imageUrls; }, [imageUrls]);
   useEffect(() => () => imageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
@@ -126,6 +131,29 @@ export default function CreateSupply() {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm((prev) => ({ ...prev, [field]: val }));
   };
+
+  /* Cuando la categoría es sangre, forzar donación */
+  useEffect(() => {
+    if (form.category === 'sangre' && form.supply_type !== 'donacion') {
+      setForm((p) => ({ ...p, supply_type: 'donacion' }));
+    }
+  }, [form.category]);
+
+  /* Selección de punto de encuentro */
+  const handleSelectPoint = useCallback((point) => {
+    setSelectedPoint(point);
+    setForm((p) => ({ ...p, city: point.name, state: getPointState(point) }));
+  }, []);
+
+  const clearPoint = () => {
+    setSelectedPoint(null);
+    setForm((p) => ({ ...p, city: '', state: '' }));
+  };
+
+  const filteredPoints = MEETING_POINTS.filter((p) =>
+    p.name.toLowerCase().includes(pointSearch.toLowerCase()) ||
+    p.address.toLowerCase().includes(pointSearch.toLowerCase())
+  );
 
   // ── Validation per step ──
   const validateStep = (s) => {
@@ -206,35 +234,54 @@ export default function CreateSupply() {
   };
 
   // ── Step 1: Type + Category ──
+  const isSangre = form.category === 'sangre';
+
   const Step1 = (
     <div className="space-y-8">
       {/* Supply type */}
       <div>
         <label className="block text-base font-bold text-gray-900 dark:text-gray-100 mb-1">Tipo de publicación</label>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">¿Qué quieres hacer con el insumo?</p>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {SUPPLY_TYPES.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              onClick={() => setForm((p) => ({ ...p, supply_type: t.value }))}
-              className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                form.supply_type === t.value
-                  ? `${t.color} shadow-md`
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <div className="text-3xl mb-3">{t.icon}</div>
-              <p className="font-bold text-gray-900 text-sm">{t.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
-              {form.supply_type === t.value && (
-                <div className="absolute top-3 right-3 w-5 h-5 bg-current rounded-full flex items-center justify-center opacity-80">
-                  <CheckCircle2 size={13} className="text-white" />
-                </div>
-              )}
-            </button>
-          ))}
+          {SUPPLY_TYPES.map((t) => {
+            const locked = isSangre && t.value !== 'donacion';
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => !locked && setForm((p) => ({ ...p, supply_type: t.value }))}
+                disabled={locked}
+                className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-200 ${
+                  locked
+                    ? 'border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed'
+                    : form.supply_type === t.value
+                    ? `${t.color} shadow-md`
+                    : 'border-gray-200 hover:-translate-y-0.5 hover:shadow-md hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="text-3xl mb-3">{t.icon}</div>
+                <p className="font-bold text-gray-900 text-sm">{t.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
+                {form.supply_type === t.value && !locked && (
+                  <div className="absolute top-3 right-3 w-5 h-5 bg-current rounded-full flex items-center justify-center opacity-80">
+                    <CheckCircle2 size={13} className="text-white" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Aviso sangre */}
+        {isSangre && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
+            <span className="text-xl flex-shrink-0">🩸</span>
+            <p className="text-sm text-red-700 font-medium leading-snug">
+              La sangre <strong>no puede venderse ni intercambiarse</strong> — solo se permite publicarla como donación.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Category */}
@@ -350,39 +397,119 @@ export default function CreateSupply() {
     </div>
   );
 
-  // ── Step 3: Details + location ──
+  // ── Step 3: Details + location (meeting point picker) ──
   const Step3 = (
     <div className="space-y-6">
-      {/* Location */}
+
+      {/* ── Punto de encuentro ── */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <MapPin size={16} className="text-primary-600" />
-          <span className="font-bold text-gray-900 text-sm">Ubicación</span>
+          <span className="font-bold text-gray-900 text-sm">Punto de encuentro</span>
+          <span className="ml-auto text-xs text-gray-400 font-medium">Opcional</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Ciudad</label>
-            <input
-              type="text"
-              className="input-field text-sm"
-              placeholder="Ej: Guadalajara"
-              value={form.city}
-              onChange={set('city')}
-            />
+        <p className="text-xs text-gray-500 mb-3">
+          Elige dónde realizarás la entrega del insumo. Esto ayuda a los interesados a saber si están cerca.
+        </p>
+
+        {/* Punto seleccionado */}
+        {selectedPoint ? (
+          <div className="p-4 bg-primary-50 border-2 border-primary-300 rounded-2xl flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl flex-shrink-0">
+                {POINT_TYPE_CONFIG[selectedPoint.type]?.emoji}
+              </span>
+              <div className="min-w-0">
+                <p className="font-bold text-primary-900 text-sm leading-snug">{selectedPoint.name}</p>
+                <p className="text-xs text-primary-600 truncate mt-0.5">{selectedPoint.address}</p>
+                {selectedPoint.lines && (
+                  <p className="text-[10px] text-primary-500 mt-0.5">🚇 Líneas: {selectedPoint.lines}</p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={clearPoint}
+              className="w-7 h-7 rounded-full bg-primary-200 hover:bg-red-100 text-primary-700 hover:text-red-600 flex items-center justify-center flex-shrink-0 transition-all"
+            >
+              <X size={13} />
+            </button>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Estado</label>
-            <select className="input-field text-sm" value={form.state} onChange={set('state')}>
-              <option value="">Seleccionar estado</option>
-              {MEXICO_STATES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+        ) : null}
+
+        {/* Buscador de puntos */}
+        <div className="relative mb-2">
+          <SearchIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar metro, hospital, colonia..."
+            value={pointSearch}
+            onChange={(e) => setPointSearch(e.target.value)}
+            className="input-field text-sm pl-9"
+          />
         </div>
+
+        {/* Lista scrollable */}
+        <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+          {filteredPoints.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
+          ) : filteredPoints.map((point) => {
+            const isSelected = selectedPoint?.id === point.id;
+            return (
+              <button
+                key={point.id}
+                type="button"
+                onClick={() => handleSelectPoint(point)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
+                  isSelected
+                    ? 'bg-primary-50 dark:bg-primary-900/30'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <span className="text-lg flex-shrink-0">{POINT_TYPE_CONFIG[point.type]?.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-bold truncate ${isSelected ? 'text-primary-700 dark:text-primary-400' : 'text-gray-800 dark:text-gray-200'}`}>
+                    {point.name}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate">{point.address}</p>
+                </div>
+                {isSelected && <CheckCircle2 size={15} className="text-primary-600 flex-shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Toggle mapa */}
+        <button
+          type="button"
+          onClick={() => setShowPickerMap((v) => !v)}
+          className="mt-3 flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 font-semibold hover:underline"
+        >
+          <Train size={13} />
+          {showPickerMap ? 'Ocultar mapa de puntos' : 'Ver mapa de puntos de encuentro'}
+        </button>
+
+        {showPickerMap && (
+          <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
+            <p className="text-[10px] text-gray-400 text-center py-1.5 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 font-medium">
+              Haz clic en un marcador para seleccionarlo como punto de entrega
+            </p>
+            <Suspense fallback={
+              <div className="h-64 bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 text-sm">
+                Cargando mapa...
+              </div>
+            }>
+              <MeetingPointsMap
+                height="300px"
+                showLegend={false}
+                onSelectPoint={handleSelectPoint}
+              />
+            </Suspense>
+          </div>
+        )}
       </div>
 
-      {/* Details */}
+      {/* ── Detalles del producto ── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Tag size={16} className="text-primary-600" />
@@ -423,7 +550,7 @@ export default function CreateSupply() {
         </div>
       </div>
 
-      {/* Urgency */}
+      {/* ── Urgencia ── */}
       <div>
         <label className={`flex items-start gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
           form.is_urgent ? 'border-accent-400 bg-accent-50' : 'border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'
@@ -465,7 +592,6 @@ export default function CreateSupply() {
           Las publicaciones con fotos reciben hasta 3× más solicitudes. Sube hasta 5 imágenes (JPG, PNG, WebP).
         </p>
 
-        {/* Drop zone */}
         {images.length < 5 && (
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -492,7 +618,6 @@ export default function CreateSupply() {
           </div>
         )}
 
-        {/* Image previews */}
         {images.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-4">
             {images.map((img, i) => (
@@ -523,7 +648,7 @@ export default function CreateSupply() {
         )}
       </div>
 
-      {/* Summary before publish */}
+      {/* Resumen */}
       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-600">
         <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-3 uppercase tracking-wide">Resumen de la publicación</p>
         <div className="space-y-2 text-sm">
@@ -545,10 +670,10 @@ export default function CreateSupply() {
               <span className="font-semibold text-primary-700">${parseFloat(form.price || 0).toLocaleString('es-MX')} MXN</span>
             </div>
           )}
-          {form.city && (
+          {selectedPoint && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Ubicación</span>
-              <span className="font-semibold">{form.city}, {form.state}</span>
+              <span className="text-gray-500">Punto de entrega</span>
+              <span className="font-semibold text-right max-w-[60%] truncate">{selectedPoint.name}</span>
             </div>
           )}
           <div className="flex justify-between">
@@ -591,13 +716,13 @@ export default function CreateSupply() {
           <h2 className="font-black text-gray-900 dark:text-gray-100 text-lg">
             {step === 1 && 'Tipo y categoría'}
             {step === 2 && 'Información del insumo'}
-            {step === 3 && 'Detalles y ubicación'}
+            {step === 3 && 'Punto de entrega y detalles'}
             {step === 4 && 'Imágenes y publicación'}
           </h2>
           <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">
             {step === 1 && 'Define qué tipo de transacción deseas hacer'}
             {step === 2 && 'Describe el insumo con la mayor precisión posible'}
-            {step === 3 && 'Agrega información adicional que ayude a los interesados'}
+            {step === 3 && 'Elige dónde harás la entrega y agrega más detalles'}
             {step === 4 && 'Agrega fotos y revisa antes de publicar'}
           </p>
         </div>
