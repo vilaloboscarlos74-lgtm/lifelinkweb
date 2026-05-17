@@ -8,6 +8,7 @@ from app.models.supply import Supply, SupplyImage, SupplyStatus, SupplyCategory,
 from app.schemas.supply import SupplyCreate, SupplyUpdate, SupplyResponse, SupplyList
 from app.utils.dependencies import get_current_user
 from app.config import get_settings
+from app.utils.cloudinary_service import upload_image
 import os
 import uuid
 import math
@@ -210,9 +211,6 @@ async def upload_supply_images(
             detail=f"El insumo ya tiene el máximo de {MAX_IMAGES_PER_SUPPLY} imágenes"
         )
 
-    supply_dir = os.path.join(settings.UPLOAD_DIR, "supplies")
-    os.makedirs(supply_dir, exist_ok=True)
-
     added = 0
     for file in files:
         if added >= slots_available:
@@ -224,16 +222,11 @@ async def upload_supply_images(
         if len(content) > settings.MAX_FILE_SIZE:
             continue
 
-        ext = IMAGE_EXTENSIONS[file.content_type]
-        filename = f"{uuid.uuid4()}.{ext}"
-        filepath = os.path.join(supply_dir, filename)
-        with open(filepath, "wb") as f:
-            f.write(content)
-
+        image_url = upload_image(content, "lifelink/supplies")
         is_primary = existing_count == 0 and added == 0
         db.add(SupplyImage(
             supply_id=supply.id,
-            image_url=f"/uploads/supplies/{filename}",
+            image_url=image_url,
             is_primary=is_primary
         ))
         added += 1

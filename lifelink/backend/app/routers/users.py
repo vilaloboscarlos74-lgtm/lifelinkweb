@@ -6,6 +6,7 @@ from app.models.user import User, BloodType
 from app.schemas.user import UserResponse, UserUpdate, UserPublic
 from app.utils.dependencies import get_current_user
 from app.config import get_settings
+from app.utils.cloudinary_service import upload_image, delete_image
 import logging
 import os
 import uuid
@@ -73,23 +74,11 @@ async def upload_avatar(
     if len(content) > settings.MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="La imagen excede 5MB")
 
-    ext = IMAGE_EXTENSIONS[file.content_type]
-    avatar_dir = os.path.join(settings.UPLOAD_DIR, "avatars")
-    os.makedirs(avatar_dir, exist_ok=True)
-    filename = f"{uuid.uuid4()}.{ext}"
-    filepath = os.path.join(avatar_dir, filename)
-
-    with open(filepath, "wb") as f:
-        f.write(content)
-
-    # Eliminar avatar anterior si existe
+    # Eliminar avatar anterior de Cloudinary
     if current_user.avatar_url:
-        old_path = current_user.avatar_url.lstrip("/")
-        old_full = os.path.join(settings.UPLOAD_DIR, *old_path.split("/")[1:])
-        if os.path.isfile(old_full):
-            os.remove(old_full)
+        delete_image(current_user.avatar_url)
 
-    current_user.avatar_url = f"/uploads/avatars/{filename}"
+    current_user.avatar_url = upload_image(content, "lifelink/avatars")
     db.commit()
     db.refresh(current_user)
     return current_user
