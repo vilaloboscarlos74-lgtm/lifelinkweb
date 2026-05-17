@@ -5,12 +5,65 @@ import { MEETING_POINTS, TYPE_CONFIG as POINT_TYPE_CONFIG } from '../data/meetin
 import {
   Plus, Upload, X, AlertTriangle, ChevronRight, ChevronLeft,
   Package, Tag, MapPin, ImagePlus, CheckCircle2, DollarSign,
-  Search as SearchIcon, Train,
+  Search as SearchIcon, Train, ShieldAlert, Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
+/* ─── Restricciones legales por categoría ─────────────────────────────────
+ *
+ * lockedTypes        : tipos SIEMPRE prohibidos para esta categoría
+ * lockedWhenUsed     : tipos prohibidos si la condición es usado/usado_buen_estado
+ * usedConditions     : condiciones que activan lockedWhenUsed
+ * noticeSangre       : aviso estático en Step 1
+ * noticeUsed         : aviso en Step 2 cuando condición es "usado"
+ * noticeInfo         : aviso informativo en Step 2 (siempre visible para la categoría)
+ * requireDeclaration : clave del checkbox legal obligatorio en Step 4
+ * maxQuantity        : límite máximo de cantidad permitida
+ * ──────────────────────────────────────────────────────────────────────── */
+const LEGAL_RULES = {
+  sangre: {
+    lockedTypes: ['venta', 'intercambio'],
+    noticeSangre: {
+      color: 'red',
+      icon: '🩸',
+      text: 'La sangre no puede venderse ni intercambiarse. En México la comercialización de sangre humana está prohibida por la Ley General de Salud (Art. 460). Solo se permite la donación voluntaria.',
+    },
+    maxQuantity: 1,
+  },
+  consumibles: {
+    lockedWhenUsed: ['venta', 'intercambio'],
+    usedConditions: ['usado', 'usado_buen_estado'],
+    noticeUsed: {
+      color: 'amber',
+      icon: '⚠️',
+      text: 'Los consumibles médicos usados no pueden venderse ni intercambiarse. Los artículos de un solo uso (jeringas, agujas, catéteres) son residuos biosanitarios y su redistribución está prohibida aunque sean "casi nuevos".',
+    },
+    noticeInfo: {
+      color: 'blue',
+      icon: '🧴',
+      text: 'Solo publica consumibles en perfecto estado higiénico. Jeringas, agujas, catéteres, guantes y gasas usadas NO deben publicarse — son residuos biológico-infecciosos (RPBI) regulados por la NOM-087-SEMARNAT.',
+    },
+    requireDeclaration: 'consumablesSafety',
+  },
+  medicamentos: {
+    // "medicamentos" no es categoría propia — se maneja via checkbox hasMeds
+  },
+};
+
+/* Devuelve qué tipos de publicación están bloqueados dado categoría + condición */
+function getLockedTypes(category, condition) {
+  const rules = LEGAL_RULES[category];
+  if (!rules) return [];
+  if (rules.lockedTypes) return rules.lockedTypes;
+  if (rules.lockedWhenUsed && rules.usedConditions?.includes(condition)) {
+    return rules.lockedWhenUsed;
+  }
+  return [];
+}
+
+/* ─── Categorías ───────────────────────────────────────────────────────── */
 const CATEGORIES = [
   { value: 'ortopedico',    icon: '🦴', label: 'Ortopédico',    desc: 'Sillas, muletas, bastones' },
   { value: 'rehabilitacion',icon: '💪', label: 'Rehabilitación',desc: 'Equipo fisioterapia' },
@@ -23,27 +76,9 @@ const CATEGORIES = [
 ];
 
 const SUPPLY_TYPES = [
-  {
-    value: 'donacion',
-    icon: '🎁',
-    label: 'Donación',
-    desc: 'Regalas el insumo sin costo',
-    color: 'border-medical-400 bg-medical-50 text-medical-700',
-  },
-  {
-    value: 'venta',
-    icon: '💰',
-    label: 'Venta',
-    desc: 'Lo vendes a precio justo',
-    color: 'border-primary-400 bg-primary-50 text-primary-700',
-  },
-  {
-    value: 'intercambio',
-    icon: '🔄',
-    label: 'Intercambio',
-    desc: 'Lo cambias por otro insumo',
-    color: 'border-brand-400 bg-brand-50 text-brand-700',
-  },
+  { value: 'donacion',   icon: '🎁', label: 'Donación',    desc: 'Regalas el insumo sin costo',   color: 'border-medical-400 bg-medical-50 text-medical-700' },
+  { value: 'venta',      icon: '💰', label: 'Venta',       desc: 'Lo vendes a precio justo',       color: 'border-primary-400 bg-primary-50 text-primary-700' },
+  { value: 'intercambio',icon: '🔄', label: 'Intercambio', desc: 'Lo cambias por otro insumo',     color: 'border-brand-400 bg-brand-50 text-brand-700' },
 ];
 
 const CONDITIONS = [
@@ -62,6 +97,25 @@ function getPointState(point) {
   return /Estado de México|EDOMEX|Naucalpan|Ecatepec|Nezahualcóyotl|Tlalnepantla/i.test(point.address)
     ? 'Estado de México'
     : 'Ciudad de México';
+}
+
+/* Componente de aviso legal coloreado */
+function LegalNotice({ color = 'amber', icon, text, children }) {
+  const palette = {
+    red:    'bg-red-50 border-red-200 text-red-800',
+    amber:  'bg-amber-50 border-amber-200 text-amber-800',
+    blue:   'bg-blue-50 border-blue-200 text-blue-800',
+    green:  'bg-emerald-50 border-emerald-200 text-emerald-800',
+  };
+  return (
+    <div className={`p-3.5 border rounded-xl flex gap-2.5 ${palette[color]}`}>
+      {icon && <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>}
+      <div className="text-xs font-medium leading-relaxed">
+        {text}
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function StepIndicator({ current }) {
@@ -104,10 +158,20 @@ export default function CreateSupply() {
   const [dragOver, setDragOver] = useState(false);
   const imageUrlsRef = useRef([]);
 
-  /* Meeting point picker state */
+  /* Meeting point picker */
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [pointSearch, setPointSearch] = useState('');
   const [showPickerMap, setShowPickerMap] = useState(false);
+
+  /* Legal declarations (obligatorias antes de publicar) */
+  const [declarations, setDeclarations] = useState({
+    generalLegal: false,
+    consumablesSafety: false,
+    prescriptionMeds: false,
+  });
+  const [hasPrescriptionMeds, setHasPrescriptionMeds] = useState(false);
+
+  const setDecl = (key) => (e) => setDeclarations((p) => ({ ...p, [key]: e.target.checked }));
 
   useEffect(() => { imageUrlsRef.current = imageUrls; }, [imageUrls]);
   useEffect(() => () => imageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
@@ -132,14 +196,22 @@ export default function CreateSupply() {
     setForm((prev) => ({ ...prev, [field]: val }));
   };
 
-  /* Cuando la categoría es sangre, forzar donación */
+  /* ── Forzar supply_type donacion si el tipo actual queda bloqueado ── */
   useEffect(() => {
-    if (form.category === 'sangre' && form.supply_type !== 'donacion') {
+    const locked = getLockedTypes(form.category, form.condition);
+    if (locked.includes(form.supply_type)) {
       setForm((p) => ({ ...p, supply_type: 'donacion' }));
+    }
+  }, [form.category, form.condition]);
+
+  /* ── Limitar cantidad a 1 cuando es sangre ── */
+  useEffect(() => {
+    if (form.category === 'sangre' && form.quantity > 1) {
+      setForm((p) => ({ ...p, quantity: 1 }));
     }
   }, [form.category]);
 
-  /* Selección de punto de encuentro */
+  /* ── Selección de punto de encuentro ── */
   const handleSelectPoint = useCallback((point) => {
     setSelectedPoint(point);
     setForm((p) => ({ ...p, city: point.name, state: getPointState(point) }));
@@ -155,7 +227,14 @@ export default function CreateSupply() {
     p.address.toLowerCase().includes(pointSearch.toLowerCase())
   );
 
-  // ── Validation per step ──
+  /* ── Variables derivadas de restricciones ── */
+  const lockedTypes   = getLockedTypes(form.category, form.condition);
+  const rules         = LEGAL_RULES[form.category];
+  const isConsumibles = form.category === 'consumibles';
+  const isUsed        = ['usado', 'usado_buen_estado'].includes(form.condition);
+  const isSangre      = form.category === 'sangre';
+
+  /* ── Validation ── */
   const validateStep = (s) => {
     if (s === 1) {
       if (!form.supply_type) { toast.error('Selecciona el tipo de publicación'); return false; }
@@ -178,7 +257,7 @@ export default function CreateSupply() {
   const nextStep = () => { if (validateStep(step)) setStep((s) => s + 1); };
   const prevStep = () => setStep((s) => s - 1);
 
-  // ── Image handling ──
+  /* ── Image handling ── */
   const addImages = useCallback((files) => {
     const valid = Array.from(files)
       .filter((f) => f.type.startsWith('image/'))
@@ -202,8 +281,22 @@ export default function CreateSupply() {
     setImageUrls((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // ── Submit ──
+  /* ── Submit ── */
   const handleSubmit = async () => {
+    /* Validar declaraciones legales */
+    if (!declarations.generalLegal) {
+      toast.error('Debes aceptar las condiciones de uso y responsabilidad legal');
+      return;
+    }
+    if (isConsumibles && !declarations.consumablesSafety) {
+      toast.error('Debes confirmar que los consumibles cumplen las condiciones de seguridad');
+      return;
+    }
+    if (hasPrescriptionMeds && !declarations.prescriptionMeds) {
+      toast.error('Debes reconocer la advertencia sobre medicamentos con receta');
+      return;
+    }
+
     if (images.length === 0) {
       const confirmed = window.confirm('¿Publicar sin imágenes? Las publicaciones con imágenes reciben más atención.');
       if (!confirmed) return;
@@ -219,10 +312,7 @@ export default function CreateSupply() {
       if (!data.price) delete data.price;
 
       const res = await suppliesAPI.create(data);
-
-      if (images.length > 0) {
-        await suppliesAPI.uploadImages(res.data.id, images);
-      }
+      if (images.length > 0) await suppliesAPI.uploadImages(res.data.id, images);
 
       toast.success('¡Publicación creada exitosamente!');
       navigate(`/supplies/${res.data.id}`);
@@ -233,9 +323,9 @@ export default function CreateSupply() {
     }
   };
 
-  // ── Step 1: Type + Category ──
-  const isSangre = form.category === 'sangre';
-
+  /* ══════════════════════════════════════════════════════════════════════
+   * STEP 1 — Tipo + Categoría
+   * ════════════════════════════════════════════════════════════════════ */
   const Step1 = (
     <div className="space-y-8">
       {/* Supply type */}
@@ -245,7 +335,7 @@ export default function CreateSupply() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {SUPPLY_TYPES.map((t) => {
-            const locked = isSangre && t.value !== 'donacion';
+            const locked = lockedTypes.includes(t.value);
             return (
               <button
                 key={t.value}
@@ -268,18 +358,20 @@ export default function CreateSupply() {
                     <CheckCircle2 size={13} className="text-white" />
                   </div>
                 )}
+                {locked && (
+                  <div className="absolute top-3 right-3">
+                    <ShieldAlert size={15} className="text-gray-400" />
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Aviso sangre */}
-        {isSangre && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
-            <span className="text-xl flex-shrink-0">🩸</span>
-            <p className="text-sm text-red-700 font-medium leading-snug">
-              La sangre <strong>no puede venderse ni intercambiarse</strong> — solo se permite publicarla como donación.
-            </p>
+        {/* Aviso legal de sangre (siempre visible al seleccionar esa categoría) */}
+        {isSangre && rules?.noticeSangre && (
+          <div className="mt-3">
+            <LegalNotice color={rules.noticeSangre.color} icon={rules.noticeSangre.icon} text={rules.noticeSangre.text} />
           </div>
         )}
       </div>
@@ -312,7 +404,9 @@ export default function CreateSupply() {
     </div>
   );
 
-  // ── Step 2: Basic info ──
+  /* ══════════════════════════════════════════════════════════════════════
+   * STEP 2 — Información básica + avisos legales contextuales
+   * ════════════════════════════════════════════════════════════════════ */
   const Step2 = (
     <div className="space-y-5">
       <div>
@@ -353,29 +447,45 @@ export default function CreateSupply() {
         )}
       </div>
 
+      {/* Condición */}
       <div>
         <label className="text-sm font-bold text-gray-900 mb-1.5 block">Condición del insumo</label>
         <div className="grid grid-cols-2 gap-2">
-          {CONDITIONS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => setForm((p) => ({ ...p, condition: c.value }))}
-              className={`p-3 rounded-xl border-2 text-left transition-all ${
-                form.condition === c.value
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <p className={`text-sm font-semibold ${form.condition === c.value ? 'text-primary-700' : 'text-gray-700'}`}>
-                {c.label}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">{c.desc}</p>
-            </button>
-          ))}
+          {CONDITIONS.map((c) => {
+            /* Para sangre solo mostrar "nuevo" (es donación de sangre, no un objeto físico) */
+            if (isSangre && c.value !== 'nuevo') return null;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, condition: c.value }))}
+                className={`p-3 rounded-xl border-2 text-left transition-all ${
+                  form.condition === c.value
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <p className={`text-sm font-semibold ${form.condition === c.value ? 'text-primary-700' : 'text-gray-700'}`}>
+                  {c.label}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{c.desc}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {/* Aviso: consumibles usados → solo donación */}
+      {isConsumibles && isUsed && (
+        <LegalNotice color="amber" icon="⚠️" text={rules?.noticeUsed?.text} />
+      )}
+
+      {/* Aviso informativo para consumibles */}
+      {isConsumibles && (
+        <LegalNotice color="blue" icon="🧴" text={rules?.noticeInfo?.text} />
+      )}
+
+      {/* Precio (solo si venta) */}
       {form.supply_type === 'venta' && (
         <div>
           <label className="text-sm font-bold text-gray-900 mb-1.5 block">Precio (MXN) *</label>
@@ -394,10 +504,56 @@ export default function CreateSupply() {
           <p className="text-xs text-gray-400 mt-1">Ingresa un precio justo y accesible para la comunidad</p>
         </div>
       )}
+
+      {/* ── ¿Incluye medicamentos con receta? ── */}
+      {(isConsumibles || form.category === 'otro') && (
+        <div className="space-y-2">
+          <label className={`flex items-start gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+            hasPrescriptionMeds ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:border-gray-300'
+          }`}>
+            <input
+              type="checkbox"
+              checked={hasPrescriptionMeds}
+              onChange={(e) => setHasPrescriptionMeds(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-red-500"
+            />
+            <div>
+              <p className={`text-sm font-bold ${hasPrescriptionMeds ? 'text-red-800' : 'text-gray-800'}`}>
+                ⚕️ Esta publicación incluye medicamentos con receta médica
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Antibióticos, analgésicos controlados, insulina, quimioterapias, etc.
+              </p>
+            </div>
+          </label>
+
+          {hasPrescriptionMeds && (
+            <LegalNotice color="red" icon="🏥">
+              <strong>Aviso legal importante:</strong> Los medicamentos con receta médica están regulados por la Ley General de Salud (México). Su venta sin prescripción es ilegal. Solo puedes compartirlos como donación cuando el receptor cuente con la prescripción médica correspondiente. LifeLink no se responsabiliza del uso indebido de medicamentos controlados.
+            </LegalNotice>
+          )}
+        </div>
+      )}
+
+      {/* Aviso para equipo ortopédico/prótesis de segunda mano */}
+      {(form.category === 'protesis' || form.category === 'ortopedico') && isUsed && (
+        <LegalNotice color="amber" icon="🦿">
+          <strong>Importante:</strong> Las prótesis y el equipo ortopédico de segunda mano deben estar limpios y en condiciones de uso seguro. Se recomienda que el receptor consulte a un especialista antes de utilizarlos. Incluye en la descripción el tamaño, medidas y condición exacta del equipo.
+        </LegalNotice>
+      )}
+
+      {/* Aviso para diagnóstico */}
+      {form.category === 'diagnostico' && isUsed && (
+        <LegalNotice color="blue" icon="🔬">
+          Los dispositivos de diagnóstico usados (glucómetros, tensiómetros, oxímetros) deben ser calibrados y limpiados antes de su uso. Incluye en la descripción si tienen accesorios, batería y cuánto tiempo llevan en uso.
+        </LegalNotice>
+      )}
     </div>
   );
 
-  // ── Step 3: Details + location (meeting point picker) ──
+  /* ══════════════════════════════════════════════════════════════════════
+   * STEP 3 — Punto de encuentro + Detalles
+   * ════════════════════════════════════════════════════════════════════ */
   const Step3 = (
     <div className="space-y-6">
 
@@ -409,16 +565,13 @@ export default function CreateSupply() {
           <span className="ml-auto text-xs text-gray-400 font-medium">Opcional</span>
         </div>
         <p className="text-xs text-gray-500 mb-3">
-          Elige dónde realizarás la entrega del insumo. Esto ayuda a los interesados a saber si están cerca.
+          Elige dónde realizarás la entrega. Esto ayuda a los interesados a saber si están cerca.
         </p>
 
-        {/* Punto seleccionado */}
         {selectedPoint ? (
           <div className="p-4 bg-primary-50 border-2 border-primary-300 rounded-2xl flex items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-3 min-w-0">
-              <span className="text-2xl flex-shrink-0">
-                {POINT_TYPE_CONFIG[selectedPoint.type]?.emoji}
-              </span>
+              <span className="text-2xl flex-shrink-0">{POINT_TYPE_CONFIG[selectedPoint.type]?.emoji}</span>
               <div className="min-w-0">
                 <p className="font-bold text-primary-900 text-sm leading-snug">{selectedPoint.name}</p>
                 <p className="text-xs text-primary-600 truncate mt-0.5">{selectedPoint.address}</p>
@@ -427,17 +580,13 @@ export default function CreateSupply() {
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={clearPoint}
-              className="w-7 h-7 rounded-full bg-primary-200 hover:bg-red-100 text-primary-700 hover:text-red-600 flex items-center justify-center flex-shrink-0 transition-all"
-            >
+            <button type="button" onClick={clearPoint}
+              className="w-7 h-7 rounded-full bg-primary-200 hover:bg-red-100 text-primary-700 hover:text-red-600 flex items-center justify-center flex-shrink-0 transition-all">
               <X size={13} />
             </button>
           </div>
         ) : null}
 
-        {/* Buscador de puntos */}
         <div className="relative mb-2">
           <SearchIcon size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
@@ -449,23 +598,16 @@ export default function CreateSupply() {
           />
         </div>
 
-        {/* Lista scrollable */}
         <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
           {filteredPoints.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-4">Sin resultados</p>
           ) : filteredPoints.map((point) => {
             const isSelected = selectedPoint?.id === point.id;
             return (
-              <button
-                key={point.id}
-                type="button"
-                onClick={() => handleSelectPoint(point)}
+              <button key={point.id} type="button" onClick={() => handleSelectPoint(point)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                  isSelected
-                    ? 'bg-primary-50 dark:bg-primary-900/30'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
+                  isSelected ? 'bg-primary-50 dark:bg-primary-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}>
                 <span className="text-lg flex-shrink-0">{POINT_TYPE_CONFIG[point.type]?.emoji}</span>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-bold truncate ${isSelected ? 'text-primary-700 dark:text-primary-400' : 'text-gray-800 dark:text-gray-200'}`}>
@@ -479,12 +621,8 @@ export default function CreateSupply() {
           })}
         </div>
 
-        {/* Toggle mapa */}
-        <button
-          type="button"
-          onClick={() => setShowPickerMap((v) => !v)}
-          className="mt-3 flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 font-semibold hover:underline"
-        >
+        <button type="button" onClick={() => setShowPickerMap((v) => !v)}
+          className="mt-3 flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 font-semibold hover:underline">
           <Train size={13} />
           {showPickerMap ? 'Ocultar mapa de puntos' : 'Ver mapa de puntos de encuentro'}
         </button>
@@ -499,11 +637,7 @@ export default function CreateSupply() {
                 Cargando mapa...
               </div>
             }>
-              <MeetingPointsMap
-                height="300px"
-                showLegend={false}
-                onSelectPoint={handleSelectPoint}
-              />
+              <MeetingPointsMap height="300px" showLegend={false} onSelectPoint={handleSelectPoint} />
             </Suspense>
           </div>
         )}
@@ -518,34 +652,22 @@ export default function CreateSupply() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Marca</label>
-            <input
-              type="text"
-              className="input-field text-sm"
-              placeholder="Ej: Drive Medical"
-              value={form.brand}
-              onChange={set('brand')}
-            />
+            <input type="text" className="input-field text-sm" placeholder="Ej: Drive Medical"
+              value={form.brand} onChange={set('brand')} />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Modelo</label>
-            <input
-              type="text"
-              className="input-field text-sm"
-              placeholder="Ej: STD18FA-4E"
-              value={form.model}
-              onChange={set('model')}
-            />
+            <input type="text" className="input-field text-sm" placeholder="Ej: STD18FA-4E"
+              value={form.model} onChange={set('model')} />
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Cantidad</label>
-            <input
-              type="number"
-              className="input-field text-sm"
-              min="1"
-              max="999"
-              value={form.quantity}
-              onChange={set('quantity')}
+            <input type="number" className="input-field text-sm" min="1"
+              max={isSangre ? 1 : 999}
+              value={form.quantity} onChange={set('quantity')}
+              disabled={isSangre}
             />
+            {isSangre && <p className="text-[10px] text-gray-400 mt-1">La cantidad para sangre siempre es 1</p>}
           </div>
         </div>
       </div>
@@ -556,12 +678,8 @@ export default function CreateSupply() {
           form.is_urgent ? 'border-accent-400 bg-accent-50' : 'border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'
         }`}>
           <div className="pt-0.5">
-            <input
-              type="checkbox"
-              checked={form.is_urgent}
-              onChange={set('is_urgent')}
-              className="w-4 h-4 accent-accent-500 rounded"
-            />
+            <input type="checkbox" checked={form.is_urgent} onChange={set('is_urgent')}
+              className="w-4 h-4 accent-accent-500 rounded" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -579,9 +697,12 @@ export default function CreateSupply() {
     </div>
   );
 
-  // ── Step 4: Images ──
+  /* ══════════════════════════════════════════════════════════════════════
+   * STEP 4 — Imágenes + Declaraciones legales + Resumen
+   * ════════════════════════════════════════════════════════════════════ */
   const Step4 = (
     <div className="space-y-5">
+      {/* Zona de imágenes */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <ImagePlus size={16} className="text-primary-600" />
@@ -598,18 +719,11 @@ export default function CreateSupply() {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer ${
-              dragOver
-                ? 'border-primary-500 bg-primary-50'
-                : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50/50'
+              dragOver ? 'border-primary-500 bg-primary-50' : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50/50'
             }`}
           >
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              onChange={handleImageInput}
-            />
+            <input type="file" accept="image/jpeg,image/png,image/webp" multiple
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleImageInput} />
             <Upload size={28} className={`mx-auto mb-3 ${dragOver ? 'text-primary-500' : 'text-gray-400'}`} />
             <p className={`text-sm font-semibold ${dragOver ? 'text-primary-700' : 'text-gray-600'}`}>
               Arrastra imágenes aquí o haz clic para seleccionar
@@ -628,11 +742,8 @@ export default function CreateSupply() {
                     Principal
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeImage(i)}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all"
-                >
+                <button type="button" onClick={() => removeImage(i)}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all">
                   <X size={11} />
                 </button>
               </div>
@@ -648,6 +759,51 @@ export default function CreateSupply() {
         )}
       </div>
 
+      {/* ── Declaraciones legales ── */}
+      <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-600 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <ShieldAlert size={15} className="text-primary-600" />
+          <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Declaraciones legales requeridas</p>
+        </div>
+
+        {/* Siempre requerida */}
+        <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+          declarations.generalLegal ? 'bg-success-50 border-success-300' : 'bg-white border-gray-200 hover:border-gray-300'
+        }`}>
+          <input type="checkbox" checked={declarations.generalLegal} onChange={setDecl('generalLegal')}
+            className="mt-0.5 w-4 h-4 accent-success-600 flex-shrink-0" />
+          <p className={`text-xs leading-relaxed ${declarations.generalLegal ? 'text-success-800 font-medium' : 'text-gray-600'}`}>
+            Declaro que soy el propietario legítimo de este insumo y que la información proporcionada es veraz. Entiendo que LifeLink es una plataforma de intermediación y no se responsabiliza de transacciones ilícitas.
+          </p>
+        </label>
+
+        {/* Requerida para consumibles */}
+        {isConsumibles && (
+          <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+            declarations.consumablesSafety ? 'bg-success-50 border-success-300' : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}>
+            <input type="checkbox" checked={declarations.consumablesSafety} onChange={setDecl('consumablesSafety')}
+              className="mt-0.5 w-4 h-4 accent-success-600 flex-shrink-0" />
+            <p className={`text-xs leading-relaxed ${declarations.consumablesSafety ? 'text-success-800 font-medium' : 'text-gray-600'}`}>
+              🧴 Confirmo que estos consumibles están en condiciones higiénicas adecuadas para su uso, no son materiales contaminados ni artículos de un solo uso ya utilizados (jeringas, agujas, catéteres, gasas con sangre u otros RPBI).
+            </p>
+          </label>
+        )}
+
+        {/* Requerida si tiene medicamentos con receta */}
+        {hasPrescriptionMeds && (
+          <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+            declarations.prescriptionMeds ? 'bg-success-50 border-success-300' : 'bg-red-50 border-red-200 hover:border-red-300'
+          }`}>
+            <input type="checkbox" checked={declarations.prescriptionMeds} onChange={setDecl('prescriptionMeds')}
+              className="mt-0.5 w-4 h-4 accent-success-600 flex-shrink-0" />
+            <p className={`text-xs leading-relaxed ${declarations.prescriptionMeds ? 'text-success-800 font-medium' : 'text-red-700'}`}>
+              ⚕️ Entiendo que los medicamentos con receta solo pueden transferirse legalmente al amparo de una prescripción médica válida, y me responsabilizo de que la transacción cumpla con la Ley General de Salud de México.
+            </p>
+          </label>
+        )}
+      </div>
+
       {/* Resumen */}
       <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 border border-gray-200 dark:border-gray-600">
         <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-3 uppercase tracking-wide">Resumen de la publicación</p>
@@ -658,7 +814,10 @@ export default function CreateSupply() {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Categoría</span>
-            <span className="font-semibold">{CATEGORIES.find(c => c.value === form.category)?.icon} {CATEGORIES.find(c => c.value === form.category)?.label}</span>
+            <span className="font-semibold">
+              {CATEGORIES.find(c => c.value === form.category)?.icon}{' '}
+              {CATEGORIES.find(c => c.value === form.category)?.label}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Título</span>
@@ -686,6 +845,12 @@ export default function CreateSupply() {
               <span className="text-xs font-semibold text-accent-600">Marcado como urgente</span>
             </div>
           )}
+          {hasPrescriptionMeds && (
+            <div className="flex items-center gap-2 pt-1">
+              <Info size={13} className="text-red-500" />
+              <span className="text-xs font-semibold text-red-600">Incluye medicamentos con receta</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -695,7 +860,6 @@ export default function CreateSupply() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-medical-600 rounded-xl flex items-center justify-center shadow-sm">
@@ -710,7 +874,6 @@ export default function CreateSupply() {
 
       <StepIndicator current={step} />
 
-      {/* Step content */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-card p-6 sm:p-8 mb-6 animate-fade-in">
         <div className="mb-6">
           <h2 className="font-black text-gray-900 dark:text-gray-100 text-lg">
@@ -723,47 +886,31 @@ export default function CreateSupply() {
             {step === 1 && 'Define qué tipo de transacción deseas hacer'}
             {step === 2 && 'Describe el insumo con la mayor precisión posible'}
             {step === 3 && 'Elige dónde harás la entrega y agrega más detalles'}
-            {step === 4 && 'Agrega fotos y revisa antes de publicar'}
+            {step === 4 && 'Agrega fotos, acepta las declaraciones y publica'}
           </p>
         </div>
 
         {STEP_CONTENT[step - 1]}
       </div>
 
-      {/* Navigation buttons */}
       <div className="flex items-center justify-between gap-3">
         {step > 1 ? (
-          <button
-            type="button"
-            onClick={prevStep}
-            className="btn-secondary flex items-center gap-2"
-          >
+          <button type="button" onClick={prevStep} className="btn-secondary flex items-center gap-2">
             <ChevronLeft size={16} /> Anterior
           </button>
-        ) : (
-          <div />
-        )}
+        ) : <div />}
 
         {step < 4 ? (
-          <button
-            type="button"
-            onClick={nextStep}
-            className="btn-primary flex items-center gap-2 ml-auto"
-          >
+          <button type="button" onClick={nextStep} className="btn-primary flex items-center gap-2 ml-auto">
             Continuar <ChevronRight size={16} />
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="bg-gradient-to-r from-primary-600 to-medical-600 hover:from-primary-700 hover:to-medical-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 ml-auto disabled:opacity-60"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <><CheckCircle2 size={18} /> Publicar Ahora</>
-            )}
+          <button type="button" onClick={handleSubmit} disabled={loading}
+            className="bg-gradient-to-r from-primary-600 to-medical-600 hover:from-primary-700 hover:to-medical-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 ml-auto disabled:opacity-60">
+            {loading
+              ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : <><CheckCircle2 size={18} /> Publicar Ahora</>
+            }
           </button>
         )}
       </div>
