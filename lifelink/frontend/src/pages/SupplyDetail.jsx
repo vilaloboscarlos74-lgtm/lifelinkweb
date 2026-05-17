@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { suppliesAPI, requestsAPI, getMediaUrl } from '../services/api';
+
+const MY_REQUEST_STATUS = {
+  pendiente:  { label: 'Solicitud enviada — esperando respuesta', color: 'bg-amber-50 border-amber-200 text-amber-800', dot: 'bg-amber-400' },
+  aceptada:   { label: '¡Solicitud aceptada! Ya puedes chatear',  color: 'bg-success-50 border-success-200 text-success-800', dot: 'bg-success-500' },
+  rechazada:  { label: 'Tu solicitud fue rechazada',              color: 'bg-red-50 border-red-200 text-red-800', dot: 'bg-red-400' },
+  cancelada:  { label: 'Cancelaste tu solicitud',                 color: 'bg-gray-50 border-gray-200 text-gray-600', dot: 'bg-gray-400' },
+  completada: { label: 'Entrega completada',                      color: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-400' },
+};
 import {
   MapPin, User, Star, Clock, Eye, Heart, Send, ArrowLeft,
   AlertTriangle, Package, Tag, ChevronLeft, ChevronRight,
@@ -49,6 +57,7 @@ export default function SupplyDetail() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [currentImg, setCurrentImg] = useState(0);
+  const [myRequest, setMyRequest] = useState(null);
 
   useEffect(() => {
     suppliesAPI.get(id)
@@ -59,12 +68,16 @@ export default function SupplyDetail() {
 
   useEffect(() => {
     if (!user) return;
-    suppliesAPI.getFavorites()
-      .then((r) => {
-        const favs = r.data || [];
+    Promise.allSettled([
+      suppliesAPI.getFavorites(),
+      requestsAPI.getMyForSupply(id),
+    ]).then(([favRes, reqRes]) => {
+      if (favRes.status === 'fulfilled') {
+        const favs = favRes.value.data || [];
         setIsFavorite(favs.some((s) => s.id === parseInt(id)));
-      })
-      .catch(() => {});
+      }
+      if (reqRes.status === 'fulfilled') setMyRequest(reqRes.value.data || null);
+    });
   }, [id, user]);
 
   const handleContact = async () => {
@@ -72,9 +85,10 @@ export default function SupplyDetail() {
     if (!message.trim()) return toast.error('Escribe un mensaje para el proveedor');
     setSending(true);
     try {
-      await requestsAPI.create({ receiver_id: supply.owner.id, supply_id: supply.id, message: message.trim() });
+      const res = await requestsAPI.create({ receiver_id: supply.owner.id, supply_id: supply.id, message: message.trim() });
       toast.success('¡Solicitud enviada! El proveedor recibirá tu mensaje.');
       setMessage('');
+      setMyRequest(res.data);
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al enviar solicitud');
     } finally {
@@ -135,7 +149,8 @@ export default function SupplyDetail() {
   const type = TYPE_LABELS[supply.supply_type] || { label: supply.supply_type, cls: 'badge' };
   const condition = CONDITION_LABELS[supply.condition];
   const isOwner = user?.id === supply.owner?.id;
-  const canContact = user && !isOwner && supply.status === 'disponible';
+  const activeRequest = myRequest && !['rechazada', 'cancelada'].includes(myRequest.status);
+  const canContact = user && !isOwner && supply.status === 'disponible' && !activeRequest;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -335,6 +350,36 @@ export default function SupplyDetail() {
               </div>
             </div>
           </div>
+
+          {/* Mi solicitud — estado actual */}
+          {myRequest && !isOwner && (() => {
+            const cfg = MY_REQUEST_STATUS[myRequest.status] || MY_REQUEST_STATUS.pendiente;
+            return (
+              <div className={`rounded-2xl border p-4 ${cfg.color}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`w-2 h-2 rounded-full ${cfg.dot} flex-shrink-0`} />
+                  <p className="text-sm font-bold">{cfg.label}</p>
+                </div>
+                {myRequest.status === 'aceptada' && (
+                  <Link
+                    to={`/messages/${myRequest.id}`}
+                    className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success-600 hover:bg-success-700 text-white text-sm font-bold transition-all"
+                  >
+                    <MessageCircle size={15} /> Ir al chat
+                  </Link>
+                )}
+                {myRequest.status === 'pendiente' && (
+                  <p className="text-xs opacity-70 mt-1">El proveedor revisará tu solicitud pronto.</p>
+                )}
+                {['rechazada', 'cancelada'].includes(myRequest.status) && (
+                  <p className="text-xs opacity-70 mt-1">Puedes enviar una nueva solicitud si el insumo sigue disponible.</p>
+                )}
+                <Link to="/requests" className="block mt-2 text-xs font-semibold underline opacity-70 hover:opacity-100">
+                  Ver todas mis solicitudes
+                </Link>
+              </div>
+            );
+          })()}
 
           {/* Contact card */}
           {canContact && (

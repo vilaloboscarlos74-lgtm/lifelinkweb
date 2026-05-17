@@ -7,7 +7,8 @@ from app.models.user import User
 from app.models.supply import Supply, SupplyStatus
 from app.models.request import ContactRequest, RequestStatus
 from app.models.notification import Notification, NotificationType
-from app.schemas.request import RequestCreate, RequestRespond, RequestResponse
+from app.schemas.request import RequestCreate, RequestRespond, RequestResponse, SupplyBasic
+from typing import Optional
 from app.utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/requests", tags=["Solicitudes de Contacto"])
@@ -65,8 +66,33 @@ def create_request(
 
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.id == request.id).first()
+
+
+@router.get("/supply/{supply_id}/my", response_model=Optional[RequestResponse])
+def get_my_request_for_supply(
+    supply_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Devuelve la solicitud más reciente del usuario actual para un insumo."""
+    req = (
+        db.query(ContactRequest)
+        .options(
+            joinedload(ContactRequest.sender),
+            joinedload(ContactRequest.receiver),
+            joinedload(ContactRequest.supply),
+        )
+        .filter(
+            ContactRequest.supply_id == supply_id,
+            ContactRequest.sender_id == current_user.id,
+        )
+        .order_by(ContactRequest.created_at.desc())
+        .first()
+    )
+    return req
 
 
 @router.get("/sent", response_model=List[RequestResponse])
@@ -77,7 +103,8 @@ def get_sent_requests(
     """Ver solicitudes enviadas."""
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.sender_id == current_user.id).order_by(
         ContactRequest.created_at.desc()
     ).all()
@@ -91,7 +118,8 @@ def get_received_requests(
     """Ver solicitudes recibidas."""
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.receiver_id == current_user.id).order_by(
         ContactRequest.created_at.desc()
     ).all()
@@ -118,11 +146,17 @@ def respond_request(
     req.response_message = data.response_message
     req.responded_at = datetime.now(timezone.utc)
 
-    # Si se acepta, marcar insumo como reservado
+    # Si se acepta, marcar insumo como reservado solo si se agotaron las unidades
     if data.status == RequestStatus.ACEPTADA and req.supply_id:
         supply = db.query(Supply).filter(Supply.id == req.supply_id).first()
-        if supply:
-            supply.status = SupplyStatus.RESERVADO
+        if supply and supply.status == SupplyStatus.DISPONIBLE:
+            already_accepted = db.query(ContactRequest).filter(
+                ContactRequest.supply_id == req.supply_id,
+                ContactRequest.status == RequestStatus.ACEPTADA,
+                ContactRequest.id != req.id,
+            ).count()
+            if already_accepted + 1 >= supply.quantity:
+                supply.status = SupplyStatus.RESERVADO
 
     # Notificación al solicitante
     accepted = data.status == RequestStatus.ACEPTADA
@@ -163,7 +197,14 @@ def complete_request(
     if req.supply_id:
         supply = db.query(Supply).filter(Supply.id == req.supply_id).first()
         if supply:
-            supply.status = SupplyStatus.ENTREGADO
+            # Solo marcar ENTREGADO si ya no quedan solicitudes aceptadas activas
+            still_active = db.query(ContactRequest).filter(
+                ContactRequest.supply_id == req.supply_id,
+                ContactRequest.status == RequestStatus.ACEPTADA,
+                ContactRequest.id != req.id,
+            ).count()
+            if still_active == 0:
+                supply.status = SupplyStatus.ENTREGADO
 
     # Notificar al solicitante para que deje una reseña
     notif = Notification(

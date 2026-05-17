@@ -12,9 +12,18 @@ class RequestCreate(BaseModel):
 
 
 class RequestRespond(BaseModel):
-    # Solo se puede aceptar o rechazar — no PENDIENTE, CANCELADA ni COMPLETADA
     status: Literal[RequestStatus.ACEPTADA, RequestStatus.RECHAZADA]
     response_message: Optional[str] = None
+
+
+class SupplyBasic(BaseModel):
+    id: int
+    title: str
+    status: str
+    supply_type: str
+
+    class Config:
+        from_attributes = True
 
 
 class RequestResponse(BaseModel):
@@ -22,6 +31,7 @@ class RequestResponse(BaseModel):
     sender: UserPublic
     receiver: UserPublic
     supply_id: Optional[int] = None
+    supply: Optional[SupplyBasic] = None
     status: RequestStatus
     message: Optional[str] = None
     response_message: Optional[str] = None

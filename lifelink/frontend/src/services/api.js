@@ -100,6 +100,7 @@ export const requestsAPI = {
   create: (data) => api.post('/requests/', data),
   getSent: () => api.get('/requests/sent'),
   getReceived: () => api.get('/requests/received'),
+  getMyForSupply: (supplyId) => api.get(`/requests/supply/${supplyId}/my`),
   respond: (id, data) => api.put(`/requests/${id}/respond`, data),
   complete: (id) => api.put(`/requests/${id}/complete`),
   cancel: (id) => api.put(`/requests/${id}/cancel`),

@@ -146,7 +146,16 @@ function RequestCard({ req, tab, onRespond, onCancel, onComplete, currentUser })
             className="flex items-center gap-2 mt-3 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group"
           >
             <Package size={14} className="text-gray-400 flex-shrink-0" />
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium truncate">Ver publicación del insumo</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold truncate">
+                {req.supply?.title || 'Ver publicación del insumo'}
+              </p>
+              {req.supply?.status && req.supply.status !== 'disponible' && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium capitalize">
+                  {req.supply.status === 'reservado' ? '⚠️ Reservado' : req.supply.status === 'entregado' ? '✓ Entregado' : req.supply.status}
+                </p>
+              )}
+            </div>
             <ChevronRight size={12} className="text-gray-400 ml-auto flex-shrink-0 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         )}
