@@ -290,6 +290,16 @@ export default function Requests() {
   const [tab, setTab] = useState('received');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({ received: null, sent: null });
+
+  // Prefetch both tabs' counts so badges are always visible
+  useEffect(() => {
+    Promise.allSettled([requestsAPI.getReceived(), requestsAPI.getSent()])
+      .then(([r, s]) => setCounts({
+        received: r.status === 'fulfilled' ? (r.value.data || []).length : null,
+        sent:     s.status === 'fulfilled' ? (s.value.data || []).length : null,
+      }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -297,7 +307,9 @@ export default function Requests() {
       const res = tab === 'received'
         ? await requestsAPI.getReceived()
         : await requestsAPI.getSent();
-      setRequests(res.data || []);
+      const data = res.data || [];
+      setRequests(data);
+      setCounts((prev) => ({ ...prev, [tab]: data.length }));
     } catch {
       toast.error('Error al cargar solicitudes');
     } finally {
@@ -364,9 +376,13 @@ export default function Requests() {
             }`}
           >
             <Icon size={15} /> {label}
-            {tab === key && !loading && requests.length > 0 && (
-              <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${tab === key ? 'bg-white/20' : 'bg-gray-100'}`}>
-                {requests.length}
+            {counts[key] !== null && counts[key] > 0 && (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${
+                tab === key
+                  ? 'bg-white/25 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {counts[key]}
               </span>
             )}
           </button>

@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { suppliesAPI, requestsAPI, getMediaUrl } from '../services/api';
+import {
+  MapPin, User, Star, Clock, Eye, Heart, Send, ArrowLeft,
+  AlertTriangle, Package, Tag, ChevronLeft, ChevronRight,
+  Share2, MessageCircle,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const MY_REQUEST_STATUS = {
   pendiente:  { label: 'Solicitud enviada — esperando respuesta', color: 'bg-amber-50 border-amber-200 text-amber-800', dot: 'bg-amber-400' },
@@ -10,12 +16,6 @@ const MY_REQUEST_STATUS = {
   cancelada:  { label: 'Cancelaste tu solicitud',                 color: 'bg-gray-50 border-gray-200 text-gray-600', dot: 'bg-gray-400' },
   completada: { label: 'Entrega completada',                      color: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-400' },
 };
-import {
-  MapPin, User, Star, Clock, Eye, Heart, Send, ArrowLeft,
-  AlertTriangle, Package, Tag, ChevronLeft, ChevronRight,
-  Share2, MessageCircle,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
 
 const CONDITION_LABELS = {
   nuevo: { label: 'Nuevo', cls: 'bg-success-100 text-success-700' },

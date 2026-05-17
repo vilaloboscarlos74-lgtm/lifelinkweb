@@ -141,21 +141,21 @@ export default function UserPublicProfile() {
             </p>
           )}
 
-          {/* Contact button — solo si hay sesión y no es uno mismo */}
-          {currentUser && currentUser.id !== profile.id && (
-            <Link
-              to="/supplies"
+          {/* Scroll to publications — solo si hay sesión y no es uno mismo y hay insumos */}
+          {currentUser && currentUser.id !== profile.id && supplies.length > 0 && (
+            <a
+              href="#user-supplies"
               className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md"
             >
               <Package size={15} /> Ver publicaciones
-            </Link>
+            </a>
           )}
         </div>
       </div>
 
       {/* Publicaciones del donante */}
       {supplies.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-6 mb-5">
+        <div id="user-supplies" className="bg-white rounded-2xl border border-gray-100 shadow-card p-6 mb-5">
           <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-4">
             <Package size={15} className="text-primary-600" /> Publicaciones recientes
           </h2>

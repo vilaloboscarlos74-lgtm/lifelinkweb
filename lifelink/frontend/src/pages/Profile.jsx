@@ -152,12 +152,12 @@ export default function Profile() {
       const payload = {
         full_name: form.full_name,
         is_blood_donor: form.is_blood_donor,
+        phone: form.phone || '',
+        bio: form.bio || '',
+        city: form.city || '',
+        state: form.state || '',
+        blood_type: form.blood_type || '',
       };
-      if (form.phone)      payload.phone      = form.phone;
-      if (form.bio)        payload.bio        = form.bio;
-      if (form.city)       payload.city       = form.city;
-      if (form.state)      payload.state      = form.state;
-      if (form.blood_type) payload.blood_type = form.blood_type;
 
       const res = await usersAPI.updateProfile(payload);
       updateUser(res.data);

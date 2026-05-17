@@ -210,7 +210,7 @@ export default function BloodDonors() {
             </select>
             {bloodType && compatibleTypes.length > 0 && (
               <p className="text-[11px] text-gray-400 mt-1">
-                Compatible con: {compatibleTypes.join(', ')}
+                Puede donar a: {compatibleTypes.join(', ')}
               </p>
             )}
           </div>
