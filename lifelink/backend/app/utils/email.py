@@ -1,41 +1,7 @@
-import smtplib
-import asyncio
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from concurrent.futures import ThreadPoolExecutor
+import resend
 
 logger = logging.getLogger(__name__)
-_executor = ThreadPoolExecutor(max_workers=4)
-
-
-def _send_sync(to: str, subject: str, html: str, settings) -> None:
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        logger.warning("EMAIL SKIP: SMTP_USER o SMTP_PASSWORD no configurados")
-        return
-    logger.info(f"EMAIL SEND: {settings.SMTP_USER} → {to} via {settings.SMTP_HOST}:{settings.SMTP_PORT}")
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>"
-    msg["To"] = to
-    msg.attach(MIMEText(html, "html", "utf-8"))
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as s:
-        s.ehlo()
-        s.starttls()
-        s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-        s.sendmail(settings.FROM_EMAIL, to, msg.as_string())
-    logger.info(f"EMAIL OK: enviado a {to}")
-
-
-async def send_email(to: str, subject: str, html: str) -> None:
-    from app.config import get_settings
-    settings = get_settings()
-    loop = asyncio.get_event_loop()
-    try:
-        await loop.run_in_executor(_executor, _send_sync, to, subject, html, settings)
-    except Exception as e:
-        logger.error(f"EMAIL ERROR: {e}")
-
 
 _BASE_STYLE = """
   font-family:'Plus Jakarta Sans',Arial,sans-serif;
@@ -53,6 +19,27 @@ _HEADER = """
     </p>
   </div>
 """
+
+
+async def send_email(to: str, subject: str, html: str) -> None:
+    from app.config import get_settings
+    settings = get_settings()
+
+    if not settings.RESEND_API_KEY:
+        logger.warning("EMAIL SKIP: RESEND_API_KEY no configurada")
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+    try:
+        resend.Emails.send({
+            "from": settings.FROM_EMAIL,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+        })
+        logger.info(f"EMAIL OK: enviado a {to}")
+    except Exception as e:
+        logger.error(f"EMAIL ERROR: {e}")
 
 
 async def send_verification_email(to_email: str, username: str, token: str) -> None:
@@ -75,7 +62,7 @@ async def send_verification_email(to_email: str, username: str, token: str) -> N
                     color:#fff;padding:14px 36px;border-radius:12px;
                     text-decoration:none;font-weight:700;font-size:15px;
                     display:inline-block;letter-spacing:0.2px;">
-            ✅ Verificar mi correo
+            Verificar mi correo
           </a>
         </div>
         <p style="color:#94a3b8;font-size:12px;line-height:1.6;margin:0;">
@@ -101,7 +88,7 @@ async def send_2fa_enabled_email(to_email: str, username: str) -> None:
       {_HEADER}
       <div style="padding:32px 36px;background:#fff;">
         <h2 style="color:#0c5d8a;margin:0 0 12px;">
-          🔐 Autenticación en dos pasos activada
+          Autenticación en dos pasos activada
         </h2>
         <p style="color:#475569;line-height:1.6;margin:0 0 16px;">
           Hola <strong>{username}</strong>, la verificación en dos pasos
@@ -113,7 +100,7 @@ async def send_2fa_enabled_email(to_email: str, username: str) -> None:
         </p>
         <p style="color:#dc2626;font-size:13px;background:#fef2f2;
                   padding:12px 16px;border-radius:8px;border-left:3px solid #dc2626;">
-          ⚠️ Si no fuiste tú, desactiva el 2FA desde tu perfil
+          Si no fuiste tú, desactiva el 2FA desde tu perfil
           o contacta soporte inmediatamente.
         </p>
       </div>

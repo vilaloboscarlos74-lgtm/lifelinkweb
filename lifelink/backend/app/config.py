@@ -28,12 +28,9 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
-    # Email SMTP (Gmail: smtp.gmail.com:587, Outlook: smtp.office365.com:587)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    FROM_EMAIL: str = "noreply@lifelink.mx"
+    # Email via Resend (API HTTP, no SMTP)
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "LifeLink Medical <onboarding@resend.dev>"
     FROM_NAME: str = "LifeLink Medical"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
