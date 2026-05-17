@@ -144,17 +144,15 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const [recentRes, urgentRes, mapRes] = await Promise.all([
-          suppliesAPI.list({ limit: 10, sort_by: 'created_at', order: 'desc' }),
-          suppliesAPI.list({ limit: 4, is_urgent: true }),
-          suppliesAPI.list({ limit: 100, sort_by: 'created_at', order: 'desc' }),
-        ]);
-        setRecent(recentRes.data.items || []);
-        setUrgent(urgentRes.data.items || []);
-        setAllForMap(mapRes.data.items || []);
-      } catch { /* silent */ }
-      finally { setLoading(false); }
+      const [recentRes, urgentRes, mapRes] = await Promise.allSettled([
+        suppliesAPI.list({ limit: 10, sort_by: 'created_at', order: 'desc' }),
+        suppliesAPI.list({ limit: 4, is_urgent: true }),
+        suppliesAPI.list({ limit: 100, sort_by: 'created_at', order: 'desc' }),
+      ]);
+      if (recentRes.status === 'fulfilled') setRecent(recentRes.value.data.items || []);
+      if (urgentRes.status === 'fulfilled') setUrgent(urgentRes.value.data.items || []);
+      if (mapRes.status === 'fulfilled') setAllForMap(mapRes.value.data.items || []);
+      setLoading(false);
     };
     fetchData();
   }, []);

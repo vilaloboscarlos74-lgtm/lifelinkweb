@@ -46,7 +46,7 @@ def create_supply(
 @router.get("/", response_model=SupplyList)
 def list_supplies(
     page: int = Query(1, ge=1),
-    limit: int = Query(12, ge=1, le=50),
+    limit: int = Query(12, ge=1, le=100),
     query: Optional[str] = None,
     category: Optional[SupplyCategory] = None,
     supply_type: Optional[SupplyType] = None,
