@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
@@ -59,9 +59,9 @@ export default function TwoFactorVerify() {
   };
 
   // Auto-submit cuando se completan los 6 dígitos
-  if (code.length === 6 && !loading) {
-    handleSubmit();
-  }
+  useEffect(() => {
+    if (code.length === 6 && !loading) handleSubmit();
+  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center px-4 py-10 -mx-4 sm:-mx-6">

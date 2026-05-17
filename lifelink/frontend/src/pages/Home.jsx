@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { suppliesAPI, authAPI, getMediaUrl } from '../services/api';
+import { MEETING_POINTS } from '../data/meetingPoints';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
   MapPin, Package, HandHeart, CheckCircle, ChevronRight,
@@ -168,7 +169,7 @@ export default function Home() {
       await authAPI.resendVerification(user.email);
       toast.success('Enlace de verificación enviado. Revisa tu correo.');
     } catch {
-      toast.success('Si el correo está registrado, recibirás el enlace.');
+      toast('Si el correo está registrado, recibirás el enlace.', { icon: '📧' });
     } finally {
       setResendingEmail(false);
     }
@@ -617,9 +618,9 @@ export default function Home() {
               {/* Stats rápidos */}
               <div className="grid grid-cols-3 gap-3 mb-6">
                 {[
-                  { value: '18', label: 'Estaciones metro CDMX', emoji: '🚇' },
-                  { value: '3',  label: 'Estaciones EDOMEX',     emoji: '🚈' },
-                  { value: '13', label: 'Hospitales de referencia', emoji: '🏥' },
+                  { value: MEETING_POINTS.filter(p => p.type === 'metro_cdmx').length,   label: 'Estaciones metro CDMX',    emoji: '🚇' },
+                  { value: MEETING_POINTS.filter(p => p.type === 'metro_edomex').length, label: 'Estaciones EDOMEX',        emoji: '🚈' },
+                  { value: MEETING_POINTS.filter(p => p.type === 'hospital').length,     label: 'Hospitales de referencia', emoji: '🏥' },
                 ].map(({ value, label, emoji }) => (
                   <div key={label} className="bg-gray-50 rounded-2xl p-3 text-center border border-gray-100">
                     <p className="text-lg">{emoji}</p>

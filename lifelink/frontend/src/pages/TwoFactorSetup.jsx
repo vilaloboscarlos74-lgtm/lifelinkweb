@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import { Shield, QrCode, CheckCircle, XCircle, Loader, Eye, EyeOff, Copy } from 'lucide-react';
@@ -6,6 +7,8 @@ import toast from 'react-hot-toast';
 
 export default function TwoFactorSetup({ onClose }) {
   const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const handleClose = () => { if (onClose) onClose(); else navigate('/profile'); };
   const [step, setStep] = useState('intro');   // intro | qr | verify | done
   const [qrData, setQrData] = useState(null);
   const [code, setCode] = useState('');
@@ -48,7 +51,7 @@ export default function TwoFactorSetup({ onClose }) {
       await authAPI.disable2FA(disableCode);
       updateUser({ ...user, totp_enabled: false });
       toast.success('2FA desactivado');
-      onClose?.();
+      handleClose();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Código incorrecto');
     } finally {
@@ -206,7 +209,7 @@ export default function TwoFactorSetup({ onClose }) {
           Necesitarás tu código cada vez que inicies sesión.
         </p>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="bg-primary-600 hover:bg-primary-700 text-white font-bold px-8 py-3 rounded-xl transition-all"
         >
           Entendido
