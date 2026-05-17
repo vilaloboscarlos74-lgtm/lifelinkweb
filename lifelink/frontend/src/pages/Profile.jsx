@@ -297,7 +297,7 @@ export default function Profile() {
             <input
               type="checkbox"
               checked={form.is_blood_donor}
-              onChange={set('is_blood_donor')}
+              onChange={handleBloodDonorChange}
               className="w-4 h-4 accent-accent-500"
             />
             <div>

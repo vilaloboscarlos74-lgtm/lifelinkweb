@@ -56,6 +56,7 @@ def list_supplies(
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     is_urgent: Optional[bool] = None,
+    owner_id: Optional[int] = None,
     sort_by: str = Query("created_at"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db)
@@ -90,6 +91,8 @@ def list_supplies(
         filters.append(Supply.price <= max_price)
     if is_urgent is not None:
         filters.append(Supply.is_urgent == is_urgent)
+    if owner_id is not None:
+        filters.append(Supply.owner_id == owner_id)
 
     # COUNT sin joins (mucho más rápido)
     total = db.query(Supply).filter(*filters).count()
