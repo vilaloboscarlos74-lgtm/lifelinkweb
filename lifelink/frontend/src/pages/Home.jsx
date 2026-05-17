@@ -1,15 +1,17 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI, getMediaUrl } from '../services/api';
+import { suppliesAPI, authAPI, getMediaUrl } from '../services/api';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
   MapPin, Package, HandHeart, CheckCircle, ChevronRight,
-  Zap, Eye, Clock, AlertTriangle,
+  Zap, Eye, Clock, AlertTriangle, Train, X, Mail,
   Bone, Dumbbell, Stethoscope, Accessibility, BedDouble, Syringe,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const SupplyMap = lazy(() => import('../components/SupplyMap'));
+const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
 /* ─── Data ─────────────────────────────────────────── */
 const COLLECTIONS = [
@@ -136,6 +138,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(false);
+  const [showMeetingMap, setShowMeetingMap] = useState(false);
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,8 +164,40 @@ export default function Home() {
     else navigate('/supplies');
   };
 
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    try {
+      await authAPI.resendVerification(user.email);
+      toast.success('Enlace de verificación enviado. Revisa tu correo.');
+    } catch {
+      toast.success('Si el correo está registrado, recibirás el enlace.');
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
   return (
     <div className="-mx-4 sm:-mx-6 bg-gray-50 min-h-screen">
+
+      {/* ── BANNER: VERIFICAR EMAIL ── */}
+      {user && !user.email_verified && !emailBannerDismissed && (
+        <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Mail size={15} className="flex-shrink-0" />
+            <span>Verifica tu correo electrónico para acceder a todas las funciones.</span>
+            <button
+              onClick={handleResendEmail}
+              disabled={resendingEmail}
+              className="underline font-bold hover:no-underline disabled:opacity-60 ml-1"
+            >
+              {resendingEmail ? 'Enviando...' : 'Reenviar enlace'}
+            </button>
+          </div>
+          <button onClick={() => setEmailBannerDismissed(true)} className="flex-shrink-0 hover:opacity-70">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* ── ANNOUNCEMENT BAR ── */}
       <div className="bg-primary-900 text-primary-200 text-center py-2 text-xs font-medium tracking-wide">
@@ -553,6 +590,89 @@ export default function Home() {
                   <div className="mt-4 bg-medical-500/80 hover:bg-medical-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
                     <MapPin size={14} /> Abrir mapa
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PUNTOS DE ENCUENTRO CDMX + EDOMEX ── */}
+      <section className="bg-white border-y border-gray-100 py-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid lg:grid-cols-2 gap-10 items-center">
+
+            {/* Texto */}
+            <div>
+              <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-200 text-primary-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide mb-5">
+                <Train size={13} /> CDMX + Estado de México
+              </div>
+              <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">
+                Puntos de encuentro <span className="text-primary-600">seguros y accesibles</span>
+              </h2>
+              <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-md">
+                Definimos más de 30 puntos de intercambio cerca de hospitales públicos
+                y estaciones de metro con alta afluencia en CDMX y Estado de México.
+                Coordina tu entrega en un lugar seguro.
+              </p>
+
+              {/* Stats rápidos */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                {[
+                  { value: '18', label: 'Estaciones metro CDMX', emoji: '🚇' },
+                  { value: '3',  label: 'Estaciones EDOMEX',     emoji: '🚈' },
+                  { value: '13', label: 'Hospitales de referencia', emoji: '🏥' },
+                ].map(({ value, label, emoji }) => (
+                  <div key={label} className="bg-gray-50 rounded-2xl p-3 text-center border border-gray-100">
+                    <p className="text-lg">{emoji}</p>
+                    <p className="text-xl font-black text-gray-900">{value}</p>
+                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => setShowMeetingMap(v => !v)}
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-md"
+                >
+                  <MapPin size={15} /> {showMeetingMap ? 'Ocultar mapa' : 'Ver mapa'}
+                </button>
+                <Link
+                  to="/puntos-encuentro"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+                >
+                  Ver todos los puntos <ArrowRight size={14} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Mapa preview */}
+            <div>
+              {showMeetingMap ? (
+                <Suspense fallback={
+                  <div className="h-[340px] bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
+                    Cargando mapa...
+                  </div>
+                }>
+                  <MeetingPointsMap height="340px" showLegend />
+                </Suspense>
+              ) : (
+                <div
+                  onClick={() => setShowMeetingMap(true)}
+                  className="h-[340px] rounded-2xl bg-gradient-to-br from-primary-50 to-medical-50 border-2 border-dashed border-primary-200 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:from-primary-100 hover:to-medical-100 transition-all duration-300 group"
+                >
+                  <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🗺️</div>
+                  <p className="text-gray-700 font-bold text-base mb-1">Mapa de Puntos de Encuentro</p>
+                  <p className="text-gray-400 text-sm mb-4">CDMX + Estado de México</p>
+                  <div className="flex gap-2 text-xs">
+                    <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full font-semibold">🚇 Metro</span>
+                    <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-semibold">🏥 Hospitales</span>
+                    <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">🚈 EDOMEX</span>
+                  </div>
+                  <p className="text-primary-600 font-bold text-sm mt-4 flex items-center gap-1">
+                    <MapPin size={13} /> Haz clic para cargar
+                  </p>
                 </div>
               )}
             </div>

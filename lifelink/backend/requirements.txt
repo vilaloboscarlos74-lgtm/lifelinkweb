@@ -12,3 +12,6 @@ pydantic-settings==2.5.0
 aiofiles==24.1.0
 Pillow==10.4.0
 cloudinary==1.41.0
+slowapi==0.1.9
+pyotp==2.9.0
+qrcode[pil]==8.2

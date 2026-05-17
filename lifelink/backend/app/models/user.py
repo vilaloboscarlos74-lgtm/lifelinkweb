@@ -47,6 +47,15 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
 
+    # Verificación de email
+    email_verified = Column(Boolean, default=False, nullable=False)
+    email_verification_token = Column(String(255), nullable=True, unique=True, index=True)
+    email_verification_expires = Column(DateTime(timezone=True), nullable=True)
+
+    # 2FA TOTP
+    totp_secret = Column(String(255), nullable=True)
+    totp_enabled = Column(Boolean, default=False, nullable=False)
+
     # Calificación
     rating_avg = Column(Float, default=0.0)
 

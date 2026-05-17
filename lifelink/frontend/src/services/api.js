@@ -49,6 +49,16 @@ export const authAPI = {
     });
   },
   register: (data) => api.post('/auth/register', data),
+
+  // Verificación de email
+  verifyEmail: (token) => api.get(`/auth/verify-email?token=${token}`),
+  resendVerification: (email) => api.post(`/auth/resend-verification?email=${encodeURIComponent(email)}`),
+
+  // 2FA
+  generate2FA: () => api.post('/auth/2fa/generate'),
+  enable2FA: (code) => api.post('/auth/2fa/enable', { code }),
+  disable2FA: (code) => api.post('/auth/2fa/disable', { code }),
+  verify2FA: (tempToken, code) => api.post('/auth/2fa/verify', { temp_token: tempToken, code }),
 };
 
 // === USERS ===

@@ -20,6 +20,9 @@ import MySupplies from './pages/MySupplies';
 import Favorites from './pages/Favorites';
 import AdminDashboard from './pages/AdminDashboard';
 import BloodDonors from './pages/BloodDonors';
+import VerifyEmail from './pages/VerifyEmail';
+import TwoFactorVerify from './pages/TwoFactorVerify';
+import MeetingPoints from './pages/MeetingPoints';
 
 export default function App() {
   return (
@@ -47,6 +50,9 @@ export default function App() {
             <Route path="/supplies" element={<Supplies />} />
             <Route path="/supplies/:id" element={<SupplyDetail />} />
             <Route path="/donors" element={<BloodDonors />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/2fa-verify" element={<TwoFactorVerify />} />
+            <Route path="/puntos-encuentro" element={<MeetingPoints />} />
 
             {/* Protegidas */}
             <Route path="/publish" element={<ProtectedRoute><CreateSupply /></ProtectedRoute>} />

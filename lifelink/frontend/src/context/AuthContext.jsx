@@ -12,7 +12,6 @@ export function AuthProvider({ children }) {
     const savedUser = localStorage.getItem('user');
     if (token && savedUser) {
       setUser(JSON.parse(savedUser));
-      // Refresh user data
       usersAPI.getMe()
         .then((res) => {
           setUser(res.data);
@@ -31,16 +30,33 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await authAPI.login(username, password);
+    // Si el servidor pide 2FA, devolvemos el objeto para que Login.jsx redirija
+    if (res.data.requires_2fa) {
+      return { requires_2fa: true, temp_token: res.data.temp_token };
+    }
     const { access_token, user: userData } = res.data;
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-    // Fetch full profile immediately so context has all fields (bio, city, state, phone, etc.)
     try {
       const meRes = await usersAPI.getMe();
       setUser(meRes.data);
       localStorage.setItem('user', JSON.stringify(meRes.data));
-    } catch { /* non-fatal — partial data still works */ }
+    } catch { /* non-fatal */ }
+    return userData;
+  };
+
+  const loginWith2FA = async (tempToken, code) => {
+    const res = await authAPI.verify2FA(tempToken, code);
+    const { access_token, user: userData } = res.data;
+    localStorage.setItem('token', access_token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    try {
+      const meRes = await usersAPI.getMe();
+      setUser(meRes.data);
+      localStorage.setItem('user', JSON.stringify(meRes.data));
+    } catch { /* non-fatal */ }
     return userData;
   };
 
@@ -61,7 +77,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWith2FA, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+import base64
+import io
+from datetime import datetime, timedelta, timezone
+
+import pyotp
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -7,33 +14,82 @@ from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
-from app.utils.security import hash_password, verify_password, create_access_token
+from app.utils.security import (
+    hash_password, verify_password,
+    create_access_token, create_temp_token, decode_token,
+)
+from app.utils.email import send_verification_email, send_2fa_enabled_email
+from app.config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+settings = get_settings()
+
+# ── Rate limiting (slowapi) ───────────────────────────────────────────────────
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+    _limiter = Limiter(key_func=get_remote_address)
+
+    def _limit(rate: str):
+        return _limiter.limit(rate)
+except ImportError:
+    # Fallback sin limitación si slowapi no está disponible
+    def _limit(_rate: str):
+        def decorator(func):
+            return func
+        return decorator
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def _make_user_payload(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": user.role.value,
+        "avatar_url": user.avatar_url,
+        "is_verified": user.is_verified,
+        "email_verified": user.email_verified,
+        "totp_enabled": user.totp_enabled,
+    }
+
+
+def _get_user_or_404(user_id: int, db: Session) -> User:
+    user = db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+
+# ── REGISTRO ──────────────────────────────────────────────────────────────────
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+@_limit("5/minute")
+async def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
     email = user.email.lower().strip()
     username = user.username.lower().strip()
-    full_name = user.full_name.strip()
 
     existing = db.query(User).filter(
         or_(User.email == email, User.username == username)
     ).first()
-
     if existing:
         if existing.email == email:
             raise HTTPException(status_code=400, detail="El correo ya está registrado")
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
 
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+
     db_user = User(
         email=email,
         username=username,
         hashed_password=hash_password(user.password),
-        full_name=full_name,
+        full_name=user.full_name.strip(),
         phone=user.phone,
         role=user.role,
+        email_verified=False,
+        email_verification_token=token,
+        email_verification_expires=expires,
     )
     try:
         db.add(db_user)
@@ -43,20 +99,19 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=400, detail="Error al crear usuario")
 
+    await send_verification_email(email, db_user.username, token)
     return db_user
 
 
+# ── LOGIN ─────────────────────────────────────────────────────────────────────
 @router.post("/login")
-def login(
+@_limit("10/minute")
+async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """
-    Acepta application/x-www-form-urlencoded con campos 'username' y 'password'.
-    El campo 'username' puede ser email o nombre de usuario.
-    """
     login_value = form_data.username.lower().strip()
-
     user = db.query(User).filter(
         or_(User.username == login_value, User.email == login_value)
     ).first()
@@ -66,29 +121,164 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales incorrectas",
         )
-
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuario desactivado",
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
+
+    # Si tiene 2FA activo, emitir token temporal
+    if user.totp_enabled:
+        return {
+            "requires_2fa": True,
+            "temp_token": create_temp_token(user.id),
+        }
 
     token = create_access_token(data={
         "sub": str(user.id),
         "username": user.username,
         "role": user.role.value,
     })
+    return {"access_token": token, "token_type": "bearer", "user": _make_user_payload(user)}
+
+
+# ── VERIFICACIÓN DE EMAIL ─────────────────────────────────────────────────────
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email_verification_token == token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+    now = datetime.now(timezone.utc)
+    expires = user.email_verification_expires
+    if expires and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if not expires or now > expires:
+        raise HTTPException(status_code=400, detail="Token expirado. Solicita un nuevo enlace")
+
+    user.email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
+    db.commit()
+    return {"message": "Correo verificado correctamente"}
+
+
+@router.post("/resend-verification")
+@_limit("3/minute")
+async def resend_verification(request: Request, email: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email.lower().strip()).first()
+    if not user:
+        # No revelar si el email existe
+        return {"message": "Si el correo está registrado, recibirás un nuevo enlace"}
+    if user.email_verified:
+        return {"message": "Tu correo ya está verificado"}
+
+    token = secrets.token_urlsafe(32)
+    user.email_verification_token = token
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    db.commit()
+
+    await send_verification_email(user.email, user.username, token)
+    return {"message": "Si el correo está registrado, recibirás un nuevo enlace"}
+
+
+# ── 2FA: CONFIGURAR ───────────────────────────────────────────────────────────
+from app.utils.dependencies import get_current_user
+
+
+@router.post("/2fa/generate")
+def generate_2fa(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Genera secreto TOTP + imagen QR para mostrar al usuario."""
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(
+        name=current_user.email,
+        issuer_name="LifeLink Medical",
+    )
+
+    # Generar QR como imagen base64
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    # Guardar secreto temporalmente (sin activar aún)
+    current_user.totp_secret = secret
+    db.commit()
 
     return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "username": user.username,
-            "full_name": user.full_name,
-            "role": user.role.value,
-            "avatar_url": user.avatar_url,
-            "is_verified": user.is_verified,
-        },
+        "secret": secret,
+        "uri": uri,
+        "qr_code": f"data:image/png;base64,{qr_b64}",
     }
+
+
+@router.post("/2fa/enable")
+async def enable_2fa(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verifica el código TOTP y activa el 2FA."""
+    code = payload.get("code", "")
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="Primero genera el secreto 2FA")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+
+    current_user.totp_enabled = True
+    db.commit()
+
+    await send_2fa_enabled_email(current_user.email, current_user.username)
+    return {"message": "2FA activado correctamente"}
+
+
+@router.post("/2fa/disable")
+def disable_2fa(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Desactiva 2FA (requiere código TOTP actual)."""
+    code = payload.get("code", "")
+    if not current_user.totp_enabled or not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="El 2FA no está activo")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(code, valid_window=1):
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    db.commit()
+    return {"message": "2FA desactivado"}
+
+
+# ── 2FA: VERIFICAR CÓDIGO EN LOGIN ────────────────────────────────────────────
+@router.post("/2fa/verify")
+@_limit("5/minute")
+async def verify_2fa(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """
+    Recibe { temp_token, code } y devuelve el token de acceso completo
+    si el código TOTP es correcto.
+    """
+    temp_token = payload.get("temp_token", "")
+    code = payload.get("code", "")
+
+    decoded = decode_token(temp_token)
+    if not decoded or not decoded.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
+
+    user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(status_code=400, detail="2FA no configurado para este usuario")
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(code, valid_window=1):
+        raise HTTPException(status_code=401, detail="Código 2FA incorrecto")
+
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": access_token, "token_type": "bearer", "user": _make_user_payload(user)}

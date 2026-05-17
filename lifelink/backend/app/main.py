@@ -1,9 +1,19 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import os
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    _limiter = Limiter(key_func=get_remote_address)
+    _RATE_LIMIT_ENABLED = True
+except ImportError:
+    _RATE_LIMIT_ENABLED = False
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +65,9 @@ app = FastAPI(
     donaciones y solicitudes de apoyo médico.
 
     Características:
-    - Autenticación JWT
+    - Autenticación JWT con 2FA TOTP
+    - Verificación de correo electrónico
+    - Rate limiting (protección contra fuerza bruta)
     - Gestión de usuarios
     - Publicación de insumos
     - Solicitudes médicas
@@ -67,6 +79,19 @@ app = FastAPI(
     redoc_url="/api/redoc",
     lifespan=lifespan
 )
+
+# ==========================================
+# RATE LIMITING (slowapi)
+# ==========================================
+if _RATE_LIMIT_ENABLED:
+    app.state.limiter = _limiter
+    app.add_exception_handler(
+        RateLimitExceeded,
+        lambda request, exc: JSONResponse(
+            status_code=429,
+            content={"detail": "Demasiadas solicitudes. Intenta de nuevo en un momento."},
+        ),
+    )
 
 
 # ==========================================
