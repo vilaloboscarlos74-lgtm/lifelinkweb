@@ -1,15 +1,19 @@
 import smtplib
 import asyncio
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=4)
 
 
 def _send_sync(to: str, subject: str, html: str, settings) -> None:
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        logger.warning("EMAIL SKIP: SMTP_USER o SMTP_PASSWORD no configurados")
         return
+    logger.info(f"EMAIL SEND: {settings.SMTP_USER} → {to} via {settings.SMTP_HOST}:{settings.SMTP_PORT}")
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"{settings.FROM_NAME} <{settings.FROM_EMAIL}>"
@@ -20,6 +24,7 @@ def _send_sync(to: str, subject: str, html: str, settings) -> None:
         s.starttls()
         s.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         s.sendmail(settings.FROM_EMAIL, to, msg.as_string())
+    logger.info(f"EMAIL OK: enviado a {to}")
 
 
 async def send_email(to: str, subject: str, html: str) -> None:
@@ -28,8 +33,8 @@ async def send_email(to: str, subject: str, html: str) -> None:
     loop = asyncio.get_event_loop()
     try:
         await loop.run_in_executor(_executor, _send_sync, to, subject, html, settings)
-    except Exception:
-        pass  # email es best-effort, no bloquea el registro
+    except Exception as e:
+        logger.error(f"EMAIL ERROR: {e}")
 
 
 _BASE_STYLE = """
