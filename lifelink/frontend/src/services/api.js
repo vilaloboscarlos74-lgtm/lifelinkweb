@@ -129,6 +129,15 @@ export const messagesAPI = {
   send: (data) => api.post('/messages/', data),
 };
 
+// === BLOOD DONOR RECORD ===
+export const bloodAPI = {
+  getRecord: () => api.get('/blood/record'),
+  saveRecord: (data) => api.post('/blood/record', data),
+  getEligibility: () => api.get('/blood/record/eligibility'),
+  getDonations: () => api.get('/blood/record/donations'),
+  registerDonation: (data) => api.post('/blood/record/donations', data),
+};
+
 // === ADMIN ===
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),

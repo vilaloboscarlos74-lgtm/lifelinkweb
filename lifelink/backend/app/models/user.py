@@ -56,6 +56,11 @@ class User(Base):
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False, nullable=False)
 
+    # 2FA SMS
+    sms_2fa_enabled = Column(Boolean, default=False, nullable=False)
+    sms_otp = Column(String(6), nullable=True)
+    sms_otp_expires = Column(DateTime(timezone=True), nullable=True)
+
     # Calificación
     rating_avg = Column(Float, default=0.0)
 
@@ -85,4 +90,7 @@ class User(Base):
         "Review",
         foreign_keys="Review.reviewed_id",
         back_populates="reviewed"
+    )
+    blood_donor_record = relationship(
+        "BloodDonorRecord", back_populates="user", uselist=False
     )

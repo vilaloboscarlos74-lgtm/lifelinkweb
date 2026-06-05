@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = "LifeLink Medical <onboarding@resend.dev>"
     FROM_NAME: str = "LifeLink Medical"
 
+    # Twilio SMS (2FA por SMS)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

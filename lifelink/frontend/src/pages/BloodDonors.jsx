@@ -254,8 +254,8 @@ export default function BloodDonors() {
               <p className="text-xs text-gray-500 dark:text-gray-400">Regístrate y aparece en esta lista para ayudar a quien te necesite.</p>
             </div>
           </div>
-          <Link to="/profile" className="btn-danger flex-shrink-0 text-xs">
-            Registrarme
+          <Link to="/mi-expediente" className="btn-danger flex-shrink-0 text-xs">
+            Llenar expediente
           </Link>
         </div>
       )}

@@ -1,12 +1,13 @@
 import math
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, extract
 from typing import List
 from app.database import get_db
 from app.models.user import User
-from app.models.supply import Supply, SupplyStatus
+from app.models.supply import Supply, SupplyStatus, SupplyType
 from app.models.request import ContactRequest, RequestStatus
 from app.schemas.user import UserResponse
 from app.utils.dependencies import get_current_admin
@@ -44,6 +45,32 @@ def get_dashboard(
         func.count(case((ContactRequest.status == RequestStatus.COMPLETADA, 1))).label("completed"),
     ).one()
 
+    # Registros mensuales de usuarios (últimos 6 meses)
+    now = datetime.now(timezone.utc)
+    monthly_users = []
+    for i in range(5, -1, -1):
+        target = now - timedelta(days=30 * i)
+        count = db.query(func.count(User.id)).filter(
+            extract("year", User.created_at) == target.year,
+            extract("month", User.created_at) == target.month,
+        ).scalar() or 0
+        monthly_users.append({
+            "month": target.strftime("%b %Y"),
+            "count": count,
+        })
+
+    # Distribución de insumos por tipo
+    supply_by_type = db.query(
+        Supply.supply_type,
+        func.count(Supply.id).label("count"),
+    ).group_by(Supply.supply_type).all()
+
+    # Distribución de insumos por categoría (top 8)
+    supply_by_category = db.query(
+        Supply.category,
+        func.count(Supply.id).label("count"),
+    ).group_by(Supply.category).order_by(func.count(Supply.id).desc()).limit(8).all()
+
     return {
         "users": {
             "total": user_stats.total,
@@ -59,6 +86,17 @@ def get_dashboard(
             "total": request_stats.total,
             "pending": request_stats.pending,
             "completed": request_stats.completed,
+        },
+        "charts": {
+            "monthly_registrations": monthly_users,
+            "supplies_by_type": [
+                {"type": row.supply_type.value if hasattr(row.supply_type, "value") else str(row.supply_type), "count": row.count}
+                for row in supply_by_type
+            ],
+            "supplies_by_category": [
+                {"category": row.category.value if hasattr(row.category, "value") else str(row.category or "Sin categoría"), "count": row.count}
+                for row in supply_by_category
+            ],
         },
     }
 

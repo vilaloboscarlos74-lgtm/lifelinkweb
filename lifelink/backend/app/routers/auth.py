@@ -19,6 +19,7 @@ from app.utils.security import (
     create_access_token, create_temp_token, decode_token,
 )
 from app.utils.email import send_verification_email, send_2fa_enabled_email
+from app.utils.sms import generate_otp, get_otp_expiry, send_sms_otp
 from app.config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -52,6 +53,7 @@ def _make_user_payload(user: User) -> dict:
         "is_verified": user.is_verified,
         "email_verified": user.email_verified,
         "totp_enabled": user.totp_enabled,
+        "sms_2fa_enabled": user.sms_2fa_enabled,
     }
 
 
@@ -128,6 +130,21 @@ async def login(
     if user.totp_enabled:
         return {
             "requires_2fa": True,
+            "method": "totp",
+            "temp_token": create_temp_token(user.id),
+        }
+
+    if user.sms_2fa_enabled:
+        if not user.phone:
+            raise HTTPException(status_code=400, detail="No hay número de teléfono registrado para SMS 2FA")
+        otp = generate_otp()
+        user.sms_otp = otp
+        user.sms_otp_expires = get_otp_expiry()
+        db.commit()
+        send_sms_otp(user.phone, otp)
+        return {
+            "requires_2fa": True,
+            "method": "sms",
             "temp_token": create_temp_token(user.id),
         }
 
@@ -275,6 +292,136 @@ async def verify_2fa(request: Request, payload: dict, db: Session = Depends(get_
     totp = pyotp.TOTP(user.totp_secret)
     if not totp.verify(code, valid_window=1):
         raise HTTPException(status_code=401, detail="Código 2FA incorrecto")
+
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": access_token, "token_type": "bearer", "user": _make_user_payload(user)}
+
+
+# ── 2FA SMS: CONFIGURAR ───────────────────────────────────────────────────────
+
+@router.post("/2fa/sms/setup")
+def sms_2fa_setup(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Envía un OTP de prueba al teléfono del usuario para configurar SMS 2FA."""
+    if not current_user.phone:
+        raise HTTPException(status_code=400, detail="Debes agregar un número de teléfono a tu perfil primero")
+
+    otp = generate_otp()
+    current_user.sms_otp = otp
+    current_user.sms_otp_expires = get_otp_expiry()
+    db.commit()
+
+    ok = send_sms_otp(current_user.phone, otp)
+    if not ok:
+        raise HTTPException(status_code=502, detail="No se pudo enviar el SMS. Revisa tu número de teléfono")
+    return {"message": f"Código enviado a {current_user.phone}"}
+
+
+@router.post("/2fa/sms/enable")
+def sms_2fa_enable(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verifica el OTP recibido por SMS y activa el 2FA por SMS."""
+    code = payload.get("code", "")
+    if not current_user.sms_otp or not current_user.sms_otp_expires:
+        raise HTTPException(status_code=400, detail="No hay un código pendiente. Llama a /2fa/sms/setup primero")
+
+    expires = current_user.sms_otp_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado. Solicita uno nuevo")
+
+    if current_user.sms_otp != code:
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+
+    current_user.sms_2fa_enabled = True
+    current_user.sms_otp = None
+    current_user.sms_otp_expires = None
+    db.commit()
+    return {"message": "2FA por SMS activado correctamente"}
+
+
+@router.post("/2fa/sms/disable")
+def sms_2fa_disable(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Desactiva el 2FA por SMS (requiere contraseña actual)."""
+    from app.utils.security import verify_password
+    password = payload.get("password", "")
+    if not verify_password(password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+    if not current_user.sms_2fa_enabled:
+        raise HTTPException(status_code=400, detail="El 2FA por SMS no está activo")
+
+    current_user.sms_2fa_enabled = False
+    db.commit()
+    return {"message": "2FA por SMS desactivado"}
+
+
+# ── 2FA SMS: VERIFICAR EN LOGIN ───────────────────────────────────────────────
+
+@router.post("/2fa/sms/send")
+@_limit("5/minute")
+async def sms_2fa_send(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """Reenvía el OTP por SMS durante el flujo de login (dado temp_token)."""
+    temp_token = payload.get("temp_token", "")
+    decoded = decode_token(temp_token)
+    if not decoded or not decoded.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
+
+    user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.sms_2fa_enabled or not user.phone:
+        raise HTTPException(status_code=400, detail="SMS 2FA no configurado para este usuario")
+
+    otp = generate_otp()
+    user.sms_otp = otp
+    user.sms_otp_expires = get_otp_expiry()
+    db.commit()
+    send_sms_otp(user.phone, otp)
+    return {"message": "Código reenviado"}
+
+
+@router.post("/2fa/sms/verify")
+@_limit("5/minute")
+async def sms_2fa_verify(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """Verifica el OTP de SMS durante el login y devuelve el token de acceso."""
+    temp_token = payload.get("temp_token", "")
+    code = payload.get("code", "")
+
+    decoded = decode_token(temp_token)
+    if not decoded or not decoded.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
+
+    user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.sms_2fa_enabled:
+        raise HTTPException(status_code=400, detail="SMS 2FA no configurado para este usuario")
+
+    if not user.sms_otp or not user.sms_otp_expires:
+        raise HTTPException(status_code=400, detail="No hay código SMS pendiente. Solicita uno con /2fa/sms/send")
+
+    expires = user.sms_otp_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado")
+
+    if user.sms_otp != code:
+        raise HTTPException(status_code=401, detail="Código SMS incorrecto")
+
+    user.sms_otp = None
+    user.sms_otp_expires = None
+    db.commit()
 
     access_token = create_access_token(data={
         "sub": str(user.id),

@@ -25,6 +25,7 @@ import TwoFactorVerify from './pages/TwoFactorVerify';
 import TwoFactorSetup from './pages/TwoFactorSetup';
 import MeetingPoints from './pages/MeetingPoints';
 import UserPublicProfile from './pages/UserPublicProfile';
+import BloodRecord from './pages/BloodRecord';
 
 export default function App() {
   return (
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
             <Route path="/my-supplies" element={<ProtectedRoute><MySupplies /></ProtectedRoute>} />
             <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+            <Route path="/mi-expediente" element={<ProtectedRoute><BloodRecord /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
