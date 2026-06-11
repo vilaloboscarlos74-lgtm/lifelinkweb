@@ -28,10 +28,16 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
-    # Email via Resend (API HTTP, no SMTP)
-    RESEND_API_KEY: str = ""
-    FROM_EMAIL: str = "LifeLink Medical <onboarding@resend.dev>"
+    # Email SMTP (Gmail u otro proveedor)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    FROM_EMAIL: str = ""
     FROM_NAME: str = "LifeLink Medical"
+
+    # Email via Resend (alternativa a SMTP)
+    RESEND_API_KEY: str = ""
 
     # Twilio SMS (2FA por SMS)
     TWILIO_ACCOUNT_SID: str = ""
