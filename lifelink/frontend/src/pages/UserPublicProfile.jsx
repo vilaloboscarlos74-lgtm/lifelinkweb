@@ -94,7 +94,7 @@ export default function UserPublicProfile() {
       </Link>
 
       {/* Hero card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-card overflow-hidden mb-5">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card overflow-hidden mb-5">
         <div className={`bg-gradient-to-r ${gradient} h-24`} />
         <div className="px-6 pb-6">
           <div className="flex items-end gap-4 -mt-12 mb-4">
@@ -110,8 +110,8 @@ export default function UserPublicProfile() {
               )}
             </div>
             <div className="pb-1">
-              <h1 className="text-xl font-black text-gray-900">{profile.full_name}</h1>
-              <p className="text-gray-400 text-sm">@{profile.username}</p>
+              <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">{profile.full_name}</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">@{profile.username}</p>
             </div>
           </div>
 
@@ -142,8 +142,8 @@ export default function UserPublicProfile() {
 
       {/* Publicaciones del donante */}
       {supplies.length > 0 && (
-        <div id="user-supplies" className="bg-white rounded-2xl border border-gray-100 shadow-card p-6 mb-5">
-          <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-4">
+        <div id="user-supplies" className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-6 mb-5">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-2 mb-4">
             <Package size={15} className="text-primary-600" /> Publicaciones recientes
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -164,7 +164,7 @@ export default function UserPublicProfile() {
                     )}
                   </div>
                   <div className="p-2.5">
-                    <p className="text-xs font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-primary-700 transition-colors">{s.title}</p>
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug group-hover:text-primary-700 dark:group-hover:text-primary-400 transition-colors">{s.title}</p>
                     <div className="flex items-center justify-between mt-1.5 text-[10px] text-gray-400">
                       <span className="flex items-center gap-0.5"><Eye size={9} /> {s.views_count}</span>
                       {s.is_urgent && <span className="flex items-center gap-0.5 text-accent-500"><AlertTriangle size={9} /> Urgente</span>}
@@ -179,8 +179,8 @@ export default function UserPublicProfile() {
       )}
 
       {/* Reseñas */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
-        <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card p-6">
+        <h2 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-2 mb-4">
           <Star size={15} className="text-amber-400" /> Reseñas ({reviews.length})
         </h2>
         {reviews.length === 0 ? (
@@ -191,7 +191,7 @@ export default function UserPublicProfile() {
         ) : (
           <div className="space-y-3">
             {reviews.map((r) => (
-              <div key={r.id} className="flex gap-3 p-3 rounded-xl bg-gray-50">
+              <div key={r.id} className="flex gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-100 to-medical-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {r.reviewer?.avatar_url ? (
                     <img src={getMediaUrl(r.reviewer.avatar_url)} alt="" className="w-full h-full object-cover" />
@@ -203,14 +203,14 @@ export default function UserPublicProfile() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-xs font-bold text-gray-800 truncate">{r.reviewer?.full_name}</p>
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">{r.reviewer?.full_name}</p>
                     <div className="flex gap-0.5 flex-shrink-0">
                       {[1,2,3,4,5].map((s) => (
                         <Star key={s} size={10} className={s <= r.rating ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />
                       ))}
                     </div>
                   </div>
-                  {r.comment && <p className="text-xs text-gray-600 leading-relaxed">{r.comment}</p>}
+                  {r.comment && <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{r.comment}</p>}
                   <p className="text-[10px] text-gray-400 mt-1">
                     {new Date(r.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>

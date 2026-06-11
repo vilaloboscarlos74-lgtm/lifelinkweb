@@ -96,6 +96,11 @@ body {
     @apply badge bg-brand-100 text-brand-700;
   }
 
+  /* ── Form label ── */
+  .label-field {
+    @apply block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide;
+  }
+
   /* ── Section title ── */
   .section-title {
     @apply text-2xl font-bold text-gray-900 dark:text-gray-100;
@@ -267,7 +272,7 @@ body {
 .cat-glow-red::before    { background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%); }
 .cat-glow-indigo::before { background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%); }
 
-/* ── Drop-shadow icon glow ── */
+/* ── Drop-shadow icon glow (apply directly, works on hover via parent) ── */
 .glow-icon-blue   { filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6)); }
 .glow-icon-teal   { filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.6)); }
 .glow-icon-red    { filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.6)); }
@@ -275,6 +280,22 @@ body {
 .glow-icon-purple { filter: drop-shadow(0 0 8px rgba(192, 132, 252, 0.6)); }
 .glow-icon-green  { filter: drop-shadow(0 0 8px rgba(74,  222, 128, 0.6)); }
 .glow-icon-rose   { filter: drop-shadow(0 0 8px rgba(251, 113, 133, 0.6)); }
+
+/* ── Cat-card icon: glow activado en hover del card ── */
+.cat-card:hover .icon-glow-blue   { filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8));  transform: scale(1.1); }
+.cat-card:hover .icon-glow-teal   { filter: drop-shadow(0 0 10px rgba(45, 212, 191, 0.8));  transform: scale(1.1); }
+.cat-card:hover .icon-glow-red    { filter: drop-shadow(0 0 10px rgba(248, 113, 113, 0.8)); transform: scale(1.1); }
+.cat-card:hover .icon-glow-amber  { filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.8));  transform: scale(1.1); }
+.cat-card:hover .icon-glow-purple { filter: drop-shadow(0 0 10px rgba(192, 132, 252, 0.8)); transform: scale(1.1); }
+.cat-card:hover .icon-glow-slate  { filter: drop-shadow(0 0 10px rgba(148, 163, 184, 0.8)); transform: scale(1.1); }
+.cat-card:hover .icon-glow-rose   { filter: drop-shadow(0 0 10px rgba(251, 113, 133, 0.8)); transform: scale(1.1); }
+.cat-card .icon-glow-blue,
+.cat-card .icon-glow-teal,
+.cat-card .icon-glow-red,
+.cat-card .icon-glow-amber,
+.cat-card .icon-glow-purple,
+.cat-card .icon-glow-slate,
+.cat-card .icon-glow-rose { transition: filter 0.3s ease, transform 0.3s ease; }
 
 /* ── Leaflet map overrides ── */
 .leaflet-container {

@@ -354,7 +354,7 @@ export default function Home() {
       </section>
 
       {/* ── TOP COLECCIONES ── */}
-      <section className="bg-[#0a0f1e] border-b border-white/5 py-12">
+      <section className="bg-slate-950 border-b border-white/5 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-black text-white tracking-wide uppercase">Top Colecciones</h2>
@@ -370,13 +370,13 @@ export default function Home() {
                 to={`/supplies?category=${cat.key}`}
                 className={`group cat-card ${cat.glow} ${cat.border} flex flex-col items-center gap-3 p-3 sm:p-4`}
               >
-                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${cat.iconCls} group-hover:${cat.glowIcon}`}>
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:brightness-125 ${cat.iconCls}`}>
                   <cat.Icon
-                    className="w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 group-hover:scale-110"
+                    className="w-5 h-5 sm:w-6 sm:h-6"
                     strokeWidth={1.8}
                   />
                 </div>
-                <p className="text-[11px] sm:text-xs font-semibold text-slate-300 group-hover:text-white leading-tight text-center transition-colors duration-200">
+                <p className="text-[11px] sm:text-xs font-semibold text-slate-400 group-hover:text-white leading-tight text-center transition-colors duration-200">
                   {cat.label}
                 </p>
               </Link>
@@ -420,7 +420,7 @@ export default function Home() {
       )}
 
       {/* ── BENTO CATEGORIES ── */}
-      <section className="bg-[#080d1a] border-y border-white/5 py-14">
+      <section className="bg-slate-950 border-y border-white/5 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h2 className="text-xl font-black text-white tracking-wide uppercase mb-8">Explorar por tipo</h2>
 
@@ -444,7 +444,7 @@ export default function Home() {
             {/* Venta */}
             <Link to="/supplies?supply_type=venta"
               className="cat-card cat-glow-blue hover:border-sky-500/40 group min-h-[112px] flex flex-col justify-between p-5">
-              <div className="w-10 h-10 rounded-xl icon-glow-blue flex items-center justify-center group-hover:glow-icon-blue transition-all">
+              <div className="w-10 h-10 rounded-xl icon-glow-blue flex items-center justify-center">
                 <CheckCircle size={20} strokeWidth={1.8} />
               </div>
               <div>
