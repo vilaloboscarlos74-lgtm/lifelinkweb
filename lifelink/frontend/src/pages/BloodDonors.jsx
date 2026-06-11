@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usersAPI, suppliesAPI, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,6 +33,16 @@ const BLOOD_COLORS = {
 function DonorCard({ donor, currentUser }) {
   const gradient = BLOOD_COLORS[donor.blood_type] || 'from-red-500 to-rose-600';
   const isOwn = currentUser?.id === donor.id;
+  const [contactSupplyId, setContactSupplyId] = useState(null);
+
+  useEffect(() => {
+    // Buscar si el donante tiene algún insumo para poder enviar solicitud de contacto
+    if (!isOwn && currentUser) {
+      suppliesAPI.list({ owner_id: donor.id, limit: 1 })
+        .then(r => { if (r.data?.items?.[0]) setContactSupplyId(r.data.items[0].id); })
+        .catch(() => {});
+    }
+  }, [donor.id, isOwn, currentUser]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden group">
@@ -97,15 +107,17 @@ function DonorCard({ donor, currentUser }) {
             <User size={13} /> Ver perfil
           </Link>
           {!isOwn && currentUser && (
-            <Link to={`/users/${donor.id}`}
+            <Link
+              to={contactSupplyId ? `/supplies/${contactSupplyId}` : `/users/${donor.id}`}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white transition-all bg-gradient-to-r ${gradient} hover:opacity-90`}>
-              <MessageCircle size={13} /> Contactar
+              <MessageCircle size={13} />
+              {contactSupplyId ? 'Solicitar contacto' : 'Ver perfil'}
             </Link>
           )}
           {!currentUser && (
             <Link to="/login"
               className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-all">
-              <MessageCircle size={13} /> Contactar
+              <MessageCircle size={13} /> Iniciar sesión
             </Link>
           )}
           {isOwn && (

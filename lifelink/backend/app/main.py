@@ -41,12 +41,41 @@ settings = get_settings()
 # ==========================================
 # STARTUP / SHUTDOWN
 # ==========================================
+def _run_migrations():
+    """Ejecuta migraciones incrementales que create_all no cubre."""
+    from sqlalchemy import text
+    migrations = [
+        # Enum: nuevo valor solicitud
+        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
+        # Columnas supply
+        "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
+        "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_max FLOAT",
+        # Columnas users — 2FA SMS
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp VARCHAR(6)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp_expires TIMESTAMPTZ",
+        # Columnas users — 2FA Email
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp VARCHAR(6)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                logger.warning(f"Migración omitida ({sql[:50]}...): {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         logger.info("Iniciando LifeLink API...")
         Base.metadata.create_all(bind=engine)
-        logger.info("Base de datos conectada y tablas verificadas")
+        _run_migrations()
+        logger.info("Base de datos conectada, tablas y migraciones aplicadas")
     except Exception as e:
         logger.error(f"Error al iniciar la aplicación: {e}")
         raise

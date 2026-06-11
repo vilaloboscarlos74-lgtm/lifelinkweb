@@ -10,12 +10,8 @@ import toast from 'react-hot-toast';
 
 const BLOOD_TYPES = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
-const BLOOD_TYPE_VALUES = {
-  'O+': 'O_POSITIVE', 'O-': 'O_NEGATIVE',
-  'A+': 'A_POSITIVE', 'A-': 'A_NEGATIVE',
-  'B+': 'B_POSITIVE', 'B-': 'B_NEGATIVE',
-  'AB+': 'AB_POSITIVE', 'AB-': 'AB_NEGATIVE',
-};
+// El backend usa los valores directos del enum: "O+", "A-", etc.
+// No necesitamos mapping adicional.
 
 const BLOOD_COLORS = {
   'O+': 'from-red-500 to-rose-600', 'O-': 'from-red-700 to-rose-800',
@@ -90,11 +86,8 @@ export default function BloodRecord() {
   useEffect(() => {
     // Cargar datos del perfil
     if (user) {
-      const bt = user.blood_type;
-      if (bt) {
-        const display = Object.entries(BLOOD_TYPE_VALUES).find(([, v]) => v === bt)?.[0] || bt;
-        setBloodType(display);
-      }
+      // blood_type viene como "O+", "A-", etc. desde el backend
+      if (user.blood_type) setBloodType(user.blood_type);
       setIsBloodDonor(user.is_blood_donor || false);
     }
 
@@ -142,16 +135,10 @@ export default function BloodRecord() {
       });
 
       // Actualizar tipo de sangre y estado de donante en el perfil
-      if (bloodType || isBloodDonor !== user?.is_blood_donor) {
-        const profileUpdate = {
-          is_blood_donor: isBloodDonor,
-        };
-        if (bloodType) {
-          profileUpdate.blood_type = BLOOD_TYPE_VALUES[bloodType] || null;
-        }
-        const res = await usersAPI.updateProfile(profileUpdate);
-        updateUser(res.data);
-      }
+      const profileUpdate = { is_blood_donor: isBloodDonor };
+      if (bloodType) profileUpdate.blood_type = bloodType; // enviar "O+", "A-", etc.
+      const res = await usersAPI.updateProfile(profileUpdate);
+      updateUser(res.data);
 
       toast.success('Expediente guardado correctamente');
       setHasRecord(true);
