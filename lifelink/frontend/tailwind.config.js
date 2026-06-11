@@ -70,6 +70,11 @@ export default {
         'card-hover': '0 4px 12px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.08)',
         'glow-primary': '0 0 0 4px rgba(14,112,209,0.15)',
         'glow-medical': '0 0 0 4px rgba(20,184,166,0.15)',
+        'glow-blue':    '0 0 30px -5px rgba(14,165,233,0.4)',
+        'glow-teal':    '0 0 30px -5px rgba(20,184,166,0.4)',
+        'glow-red':     '0 0 30px -5px rgba(239,68,68,0.4)',
+        'glow-amber':   '0 0 30px -5px rgba(245,158,11,0.4)',
+        'inner-glow':   'inset 0 1px 0 rgba(255,255,255,0.1)',
       },
       backgroundImage: {
         'hero-gradient': 'linear-gradient(135deg, #0770a8 0%, #0c5d8a 40%, #0a3350 100%)',

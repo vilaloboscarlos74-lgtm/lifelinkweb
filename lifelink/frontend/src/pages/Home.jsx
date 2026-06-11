@@ -16,14 +16,14 @@ const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
 /* ─── Data ─────────────────────────────────────────── */
 const COLLECTIONS = [
-  { key: 'ortopedico',    Icon: Bone,          label: 'Ortopédico',    bg: 'from-amber-400 to-orange-500',  shadow: 'shadow-orange-300/60',  delay: '0s' },
-  { key: 'rehabilitacion',Icon: Dumbbell,       label: 'Rehabilitación', bg: 'from-blue-400 to-sky-500',     shadow: 'shadow-sky-300/60',     delay: '0.45s' },
-  { key: 'diagnostico',   Icon: Stethoscope,    label: 'Diagnóstico',   bg: 'from-violet-400 to-purple-500', shadow: 'shadow-purple-300/60',  delay: '0.9s' },
-  { key: 'protesis',      Icon: Accessibility,  label: 'Prótesis',      bg: 'from-slate-400 to-gray-600',    shadow: 'shadow-gray-400/60',    delay: '1.35s' },
-  { key: 'mobiliario',    Icon: BedDouble,      label: 'Mobiliario',    bg: 'from-teal-400 to-emerald-500',  shadow: 'shadow-emerald-300/60', delay: '1.8s' },
-  { key: 'consumibles',   Icon: Syringe,        label: 'Consumibles',   bg: 'from-rose-400 to-pink-500',     shadow: 'shadow-pink-300/60',    delay: '2.25s' },
-  { key: 'sangre',        Icon: Droplets,       label: 'Sangre',        bg: 'from-red-500 to-rose-600',      shadow: 'shadow-red-400/60',     delay: '2.7s' },
-  { key: 'otro',          Icon: Package,        label: 'Otros',         bg: 'from-indigo-400 to-blue-500',   shadow: 'shadow-blue-300/60',    delay: '3.15s' },
+  { key: 'ortopedico',    Icon: Bone,         label: 'Ortopédico',     glow: 'cat-glow-amber',  iconCls: 'icon-glow-amber',  glowIcon: 'glow-icon-amber',  border: 'hover:border-amber-500/40' },
+  { key: 'rehabilitacion',Icon: Dumbbell,     label: 'Rehabilitación', glow: 'cat-glow-blue',   iconCls: 'icon-glow-blue',   glowIcon: 'glow-icon-blue',   border: 'hover:border-sky-500/40' },
+  { key: 'diagnostico',   Icon: Stethoscope,  label: 'Diagnóstico',    glow: 'cat-glow-purple', iconCls: 'icon-glow-purple', glowIcon: 'glow-icon-purple', border: 'hover:border-purple-500/40' },
+  { key: 'protesis',      Icon: Accessibility,label: 'Prótesis',       glow: 'cat-glow-slate',  iconCls: 'icon-glow-slate',  glowIcon: 'glow-icon-rose',   border: 'hover:border-slate-400/40' },
+  { key: 'mobiliario',    Icon: BedDouble,    label: 'Mobiliario',     glow: 'cat-glow-teal',   iconCls: 'icon-glow-teal',   glowIcon: 'glow-icon-teal',   border: 'hover:border-teal-500/40' },
+  { key: 'consumibles',   Icon: Syringe,      label: 'Consumibles',    glow: 'cat-glow-rose',   iconCls: 'icon-glow-rose',   glowIcon: 'glow-icon-rose',   border: 'hover:border-rose-500/40' },
+  { key: 'sangre',        Icon: Droplets,     label: 'Sangre',         glow: 'cat-glow-red',    iconCls: 'icon-glow-red',    glowIcon: 'glow-icon-red',    border: 'hover:border-red-500/40' },
+  { key: 'otro',          Icon: Package,      label: 'Otros',          glow: 'cat-glow-indigo', iconCls: 'icon-glow-blue',   glowIcon: 'glow-icon-blue',   border: 'hover:border-indigo-500/40' },
 ];
 
 const TYPE_CONFIG = {
@@ -307,11 +307,26 @@ export default function Home() {
 
             {/* Right — stat cards + category grid */}
             <div className="hidden lg:flex flex-col gap-4">
-              {/* Stats row — datos reales */}
-              <div className="grid grid-cols-3 gap-3">
-                <StatCard value={stats?.users || 0}              label="Usuarios"    icon={Users}  color="bg-primary-500/60" />
-                <StatCard value={stats?.donations || 0}          label="Donaciones"  icon={Heart}  color="bg-medical-500/60" />
-                <StatCard value={stats?.completed_requests || 0} label="Entregas"    icon={Shield} color="bg-success-600/60" />
+              {/* Stats row — glassmorphism */}
+              <div className="glass rounded-2xl px-5 py-4 flex items-center justify-around gap-2 shadow-inner-glow">
+                {[
+                  { value: stats?.users || 0,              label: 'Usuarios',   icon: Users,  cls: 'icon-glow-blue' },
+                  { value: stats?.donations || 0,          label: 'Donaciones', icon: Heart,  cls: 'icon-glow-rose' },
+                  { value: stats?.completed_requests || 0, label: 'Entregas',   icon: Shield, cls: 'icon-glow-teal' },
+                ].map(({ value, label, icon: Icon, cls }, i) => {
+                  const animated = value; // StatCard handles animation
+                  return (
+                    <div key={label} className={`flex flex-col items-center gap-1.5 ${i !== 2 ? 'border-r border-white/10 pr-4 mr-1' : ''}`}>
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${cls}`}>
+                        <Icon size={16} />
+                      </div>
+                      <p className="text-2xl font-black text-white tabular-nums">
+                        {value > 0 ? value.toLocaleString('es-MX') : '—'}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-medium">{label}</p>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Category quick links */}
@@ -338,43 +353,32 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── TOP COLECCIONES (MedicalStore-style circles) ── */}
-      <section className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-12">
+      {/* ── TOP COLECCIONES ── */}
+      <section className="bg-[#0a0f1e] border-b border-white/5 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase">Top Colecciones</h2>
-            <Link to="/supplies" className="text-primary-600 font-semibold text-sm flex items-center gap-1 hover:underline">
+            <h2 className="text-xl font-black text-white tracking-wide uppercase">Top Colecciones</h2>
+            <Link to="/supplies" className="text-sky-400 font-semibold text-sm flex items-center gap-1 hover:text-sky-300 transition-colors">
               Ver todos <ChevronRight size={15} />
             </Link>
           </div>
 
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
             {COLLECTIONS.map((cat) => (
               <Link
                 key={cat.key}
                 to={`/supplies?category=${cat.key}`}
-                className="group flex flex-col items-center gap-2.5"
+                className={`group cat-card ${cat.glow} ${cat.border} flex flex-col items-center gap-3 p-3 sm:p-4`}
               >
-                {/* Circle with animated icon */}
-                <div className={`w-full aspect-square rounded-full bg-gradient-to-br ${cat.bg} flex items-center justify-center border-2 border-white/80 shadow-lg group-hover:shadow-2xl group-hover:scale-110 group-hover:brightness-110 transition-all duration-500 overflow-hidden relative`}>
-                  {/* Shimmer sweep on hover */}
-                  <div className="collection-shine absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/50 to-transparent pointer-events-none" />
-                  {/* Floating icon, staggered start per item */}
-                  <div
-                    className="animate-float-icon relative z-10"
-                    style={{ animationDelay: cat.delay }}
-                  >
-                    <cat.Icon
-                      className="w-7 h-7 sm:w-9 sm:h-9 text-white drop-shadow-md"
-                      strokeWidth={1.6}
-                    />
-                  </div>
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${cat.iconCls} group-hover:${cat.glowIcon}`}>
+                  <cat.Icon
+                    className="w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 group-hover:scale-110"
+                    strokeWidth={1.8}
+                  />
                 </div>
-
-                <div className="text-center">
-                  <p className="text-xs font-bold text-gray-800 dark:text-gray-200 group-hover:text-primary-700 dark:group-hover:text-primary-400 leading-tight transition-colors duration-300">{cat.label}</p>
-                  <p className="text-[10px] text-primary-500 group-hover:underline mt-0.5">Ver oferta</p>
-                </div>
+                <p className="text-[11px] sm:text-xs font-semibold text-slate-300 group-hover:text-white leading-tight text-center transition-colors duration-200">
+                  {cat.label}
+                </p>
               </Link>
             ))}
           </div>
@@ -415,81 +419,73 @@ export default function Home() {
         </section>
       )}
 
-      {/* ── BENTO CATEGORIES (MedicalStore grid style) ── */}
-      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
+      {/* ── BENTO CATEGORIES ── */}
+      <section className="bg-[#080d1a] border-y border-white/5 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase mb-8">Explorar por tipo</h2>
+          <h2 className="text-xl font-black text-white tracking-wide uppercase mb-8">Explorar por tipo</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Large card */}
-            <Link
-              to="/supplies?supply_type=donacion"
-              className="col-span-2 row-span-2 relative bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl overflow-hidden min-h-[240px] group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="absolute inset-0 flex flex-col justify-end p-6">
-                <div className="text-6xl mb-3 group-hover:scale-110 transition-transform duration-300">🎁</div>
-                <p className="text-white/70 text-sm font-medium">Para quienes más lo necesitan</p>
-                <p className="text-white text-2xl font-black leading-tight mt-1">Donaciones<br />Gratuitas</p>
-                <span className="mt-3 inline-flex items-center gap-1 text-white/90 text-xs font-semibold">
-                  Ver donaciones <ArrowRight size={12} />
-                </span>
+
+            {/* Hero card — Donaciones */}
+            <Link to="/supplies?supply_type=donacion"
+              className="col-span-2 row-span-2 cat-card cat-glow-teal hover:border-teal-500/40 group min-h-[240px] flex flex-col justify-end p-7 relative overflow-hidden">
+              <div className="absolute top-5 right-5 w-20 h-20 rounded-2xl icon-glow-teal flex items-center justify-center opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500">
+                <HandHeart size={40} strokeWidth={1.4} />
               </div>
-              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-16 translate-x-16" />
+              <div className="absolute top-0 right-0 w-56 h-56 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.12) 0%, transparent 70%)' }} />
+              <p className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wide">Para quienes más lo necesitan</p>
+              <p className="text-white text-3xl font-black leading-tight mb-3">Donaciones<br />Gratuitas</p>
+              <span className="inline-flex items-center gap-1.5 text-teal-400 text-sm font-semibold group-hover:gap-2.5 transition-all">
+                Explorar <ArrowRight size={14} />
+              </span>
             </Link>
 
-            {/* Medium card - Venta */}
-            <Link
-              to="/supplies?supply_type=venta"
-              className="relative bg-gradient-to-br from-primary-500 to-primary-700 rounded-3xl overflow-hidden min-h-[112px] group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="p-5 h-full flex flex-col justify-between">
-                <span className="text-3xl">💰</span>
-                <div>
-                  <p className="text-white font-black text-lg">Ventas</p>
-                  <p className="text-primary-200 text-xs">Ver oferta →</p>
-                </div>
+            {/* Venta */}
+            <Link to="/supplies?supply_type=venta"
+              className="cat-card cat-glow-blue hover:border-sky-500/40 group min-h-[112px] flex flex-col justify-between p-5">
+              <div className="w-10 h-10 rounded-xl icon-glow-blue flex items-center justify-center group-hover:glow-icon-blue transition-all">
+                <CheckCircle size={20} strokeWidth={1.8} />
+              </div>
+              <div>
+                <p className="text-white font-black text-lg">Ventas</p>
+                <p className="text-sky-400 text-xs font-medium flex items-center gap-1">Ver oferta <ArrowRight size={11} /></p>
               </div>
             </Link>
 
-            {/* Medium card - Intercambio */}
-            <Link
-              to="/supplies?supply_type=intercambio"
-              className="relative bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl overflow-hidden min-h-[112px] group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="p-5 h-full flex flex-col justify-between">
-                <span className="text-3xl">🔄</span>
-                <div>
-                  <p className="text-white font-black text-lg">Intercambios</p>
-                  <p className="text-amber-100 text-xs">Ver oferta →</p>
-                </div>
+            {/* Intercambio */}
+            <Link to="/supplies?supply_type=intercambio"
+              className="cat-card cat-glow-amber hover:border-amber-500/40 group min-h-[112px] flex flex-col justify-between p-5">
+              <div className="w-10 h-10 rounded-xl icon-glow-amber flex items-center justify-center transition-all">
+                <ArrowRight size={20} strokeWidth={1.8} className="rotate-45" />
+              </div>
+              <div>
+                <p className="text-white font-black text-lg">Intercambios</p>
+                <p className="text-amber-400 text-xs font-medium flex items-center gap-1">Ver oferta <ArrowRight size={11} /></p>
               </div>
             </Link>
 
-            {/* Medium card - Sangre */}
-            <Link
-              to="/supplies?category=sangre"
-              className="relative bg-gradient-to-br from-red-500 to-rose-700 rounded-3xl overflow-hidden min-h-[112px] group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="p-5 h-full flex flex-col justify-between">
-                <span className="text-3xl">🩸</span>
-                <div>
-                  <p className="text-white font-black text-lg">Banco de Sangre</p>
-                  <p className="text-red-200 text-xs">Ver donantes →</p>
-                </div>
+            {/* Sangre */}
+            <Link to="/donors"
+              className="cat-card cat-glow-red hover:border-red-500/40 group min-h-[112px] flex flex-col justify-between p-5">
+              <div className="w-10 h-10 rounded-xl icon-glow-red flex items-center justify-center transition-all">
+                <Droplets size={20} strokeWidth={1.8} />
+              </div>
+              <div>
+                <p className="text-white font-black text-lg">Banco de Sangre</p>
+                <p className="text-red-400 text-xs font-medium flex items-center gap-1">Ver donantes <ArrowRight size={11} /></p>
               </div>
             </Link>
 
-            {/* Medium card - Nuevo */}
-            <Link
-              to="/supplies?condition=nuevo"
-              className="relative bg-gradient-to-br from-violet-500 to-purple-700 rounded-3xl overflow-hidden min-h-[112px] group hover:shadow-xl transition-all duration-300"
-            >
-              <div className="p-5 h-full flex flex-col justify-between">
-                <span className="text-3xl">✨</span>
-                <div>
-                  <p className="text-white font-black text-lg">Estado Nuevo</p>
-                  <p className="text-violet-200 text-xs">Ver colección →</p>
-                </div>
+            {/* Nuevo */}
+            <Link to="/supplies?condition=nuevo"
+              className="cat-card cat-glow-purple hover:border-purple-500/40 group min-h-[112px] flex flex-col justify-between p-5">
+              <div className="w-10 h-10 rounded-xl icon-glow-purple flex items-center justify-center transition-all">
+                <Zap size={20} strokeWidth={1.8} />
+              </div>
+              <div>
+                <p className="text-white font-black text-lg">Estado Nuevo</p>
+                <p className="text-purple-400 text-xs font-medium flex items-center gap-1">Ver colección <ArrowRight size={11} /></p>
               </div>
             </Link>
           </div>
