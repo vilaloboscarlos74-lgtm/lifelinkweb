@@ -139,6 +139,36 @@ app.include_router(blood.router, prefix="/api")
 
 
 # ==========================================
+# ESTADÍSTICAS PÚBLICAS
+# ==========================================
+@app.get("/api/stats")
+def public_stats(db=None):
+    from app.database import get_db as _get_db
+    from sqlalchemy import func, case
+    from app.models.user import User
+    from app.models.supply import Supply, SupplyType, SupplyStatus
+    from app.models.request import ContactRequest, RequestStatus
+    db = next(_get_db())
+    try:
+        users_total = db.query(func.count(User.id)).scalar() or 0
+        blood_donors = db.query(func.count(User.id)).filter(User.is_blood_donor == True).scalar() or 0
+        supplies_total = db.query(func.count(Supply.id)).scalar() or 0
+        donations = db.query(func.count(Supply.id)).filter(Supply.supply_type == SupplyType.DONACION).scalar() or 0
+        available = db.query(func.count(Supply.id)).filter(Supply.status == SupplyStatus.DISPONIBLE).scalar() or 0
+        completed = db.query(func.count(ContactRequest.id)).filter(ContactRequest.status == RequestStatus.COMPLETADA).scalar() or 0
+        return {
+            "users": users_total,
+            "blood_donors": blood_donors,
+            "supplies": supplies_total,
+            "donations": donations,
+            "available": available,
+            "completed_requests": completed,
+        }
+    finally:
+        db.close()
+
+
+# ==========================================
 # ROOT
 # ==========================================
 @app.get("/")

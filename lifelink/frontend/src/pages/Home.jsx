@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI, authAPI, getMediaUrl } from '../services/api';
+import { suppliesAPI, authAPI, statsAPI, getMediaUrl } from '../services/api';
 import { MEETING_POINTS } from '../data/meetingPoints';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
@@ -59,7 +59,7 @@ function ProductCard({ supply }) {
   return (
     <Link
       to={`/supplies/${supply.id}`}
-      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-primary-200 hover:shadow-xl transition-all duration-300 flex flex-col"
+      className="group bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-700 hover:shadow-xl transition-all duration-300 flex flex-col"
     >
       {/* Image */}
       <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
@@ -94,8 +94,8 @@ function ProductCard({ supply }) {
 
       {/* Body */}
       <div className="p-3.5 flex flex-col flex-1">
-        <p className="text-xs text-gray-400 mb-1 truncate">{supply.owner?.full_name}</p>
-        <h3 className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug mb-2 group-hover:text-primary-700 transition-colors flex-1">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 truncate">{supply.owner?.full_name}</p>
+        <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug mb-2 group-hover:text-primary-700 dark:group-hover:text-primary-400 transition-colors flex-1">
           {supply.title}
         </h3>
 
@@ -112,7 +112,7 @@ function ProductCard({ supply }) {
         )}
 
         {/* City + time */}
-        <div className="flex items-center justify-between text-[11px] text-gray-400 mt-2.5 pt-2.5 border-t border-gray-50">
+        <div className="flex items-center justify-between text-[11px] text-gray-400 dark:text-gray-500 mt-2.5 pt-2.5 border-t border-gray-50 dark:border-gray-700">
           {supply.city ? (
             <span className="flex items-center gap-1"><MapPin size={10} className="text-primary-400" />{supply.city}</span>
           ) : <span />}
@@ -128,6 +128,38 @@ function ProductCard({ supply }) {
   );
 }
 
+/* ─── Animated counter hook ─────────────────────────── */
+function useCounter(target, duration = 1500) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!target) return;
+    let start = 0;
+    const step = Math.ceil(target / (duration / 16));
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setValue(target); clearInterval(timer); }
+      else setValue(start);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return value;
+}
+
+function StatCard({ value, label, icon: Icon, color }) {
+  const animated = useCounter(value);
+  return (
+    <div className="bg-white/10 border border-white/15 backdrop-blur-sm rounded-2xl p-4 text-center">
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center mx-auto mb-2 ${color}`}>
+        <Icon size={16} className="text-white" />
+      </div>
+      <p className="text-2xl font-black text-white">
+        {value > 0 ? animated.toLocaleString('es-MX') : '—'}
+      </p>
+      <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+    </div>
+  );
+}
+
 /* ─── Main ──────────────────────────────────────────── */
 export default function Home() {
   const { user } = useAuth();
@@ -136,6 +168,7 @@ export default function Home() {
   const [recent, setRecent] = useState([]);
   const [urgent, setUrgent] = useState([]);
   const [allForMap, setAllForMap] = useState([]);
+  const [stats, setStats] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(false);
@@ -145,14 +178,16 @@ export default function Home() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [recentRes, urgentRes, mapRes] = await Promise.allSettled([
+      const [recentRes, urgentRes, mapRes, statsRes] = await Promise.allSettled([
         suppliesAPI.list({ limit: 10, sort_by: 'created_at', order: 'desc' }),
         suppliesAPI.list({ limit: 4, is_urgent: true }),
         suppliesAPI.list({ limit: 100, sort_by: 'created_at', order: 'desc' }),
+        statsAPI.getPublic(),
       ]);
       if (recentRes.status === 'fulfilled') setRecent(recentRes.value.data.items || []);
       if (urgentRes.status === 'fulfilled') setUrgent(urgentRes.value.data.items || []);
       if (mapRes.status === 'fulfilled') setAllForMap(mapRes.value.data.items || []);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
       setLoading(false);
     };
     fetchData();
@@ -272,18 +307,11 @@ export default function Home() {
 
             {/* Right — stat cards + category grid */}
             <div className="hidden lg:flex flex-col gap-4">
-              {/* Stats row */}
+              {/* Stats row — datos reales */}
               <div className="grid grid-cols-3 gap-3">
-                {[
-                  { value: '500+', label: 'Usuarios', icon: Users },
-                  { value: '150+', label: 'Donaciones', icon: Heart },
-                  { value: '320+', label: 'Entregas', icon: Shield },
-                ].map(({ value, label, icon: Icon }) => (
-                  <div key={label} className="bg-white/10 border border-white/15 backdrop-blur-sm rounded-2xl p-4 text-center">
-                    <p className="text-2xl font-black text-white">{value}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{label}</p>
-                  </div>
-                ))}
+                <StatCard value={stats?.users || 0}              label="Usuarios"    icon={Users}  color="bg-primary-500/60" />
+                <StatCard value={stats?.donations || 0}          label="Donaciones"  icon={Heart}  color="bg-medical-500/60" />
+                <StatCard value={stats?.completed_requests || 0} label="Entregas"    icon={Shield} color="bg-success-600/60" />
               </div>
 
               {/* Category quick links */}
@@ -311,10 +339,10 @@ export default function Home() {
       </section>
 
       {/* ── TOP COLECCIONES (MedicalStore-style circles) ── */}
-      <section className="bg-white border-b border-gray-100 py-12">
+      <section className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-xl font-black text-gray-900 tracking-wide uppercase">Top Colecciones</h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase">Top Colecciones</h2>
             <Link to="/supplies" className="text-primary-600 font-semibold text-sm flex items-center gap-1 hover:underline">
               Ver todos <ChevronRight size={15} />
             </Link>
@@ -344,7 +372,7 @@ export default function Home() {
                 </div>
 
                 <div className="text-center">
-                  <p className="text-xs font-bold text-gray-800 group-hover:text-primary-700 leading-tight transition-colors duration-300">{cat.label}</p>
+                  <p className="text-xs font-bold text-gray-800 dark:text-gray-200 group-hover:text-primary-700 dark:group-hover:text-primary-400 leading-tight transition-colors duration-300">{cat.label}</p>
                   <p className="text-[10px] text-primary-500 group-hover:underline mt-0.5">Ver oferta</p>
                 </div>
               </Link>
@@ -359,7 +387,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <span className="w-3 h-3 bg-accent-500 rounded-full animate-pulse" />
-              <h2 className="text-xl font-black text-gray-900">Solicitudes Urgentes</h2>
+              <h2 className="text-xl font-black text-gray-900 dark:text-gray-100">Solicitudes Urgentes</h2>
               <span className="text-xs bg-accent-100 text-accent-700 font-bold px-2.5 py-0.5 rounded-full border border-accent-200">
                 Atención inmediata
               </span>
@@ -388,9 +416,9 @@ export default function Home() {
       )}
 
       {/* ── BENTO CATEGORIES (MedicalStore grid style) ── */}
-      <section className="bg-white border-y border-gray-100 py-14">
+      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-xl font-black text-gray-900 tracking-wide uppercase mb-8">Explorar por tipo</h2>
+          <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase mb-8">Explorar por tipo</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {/* Large card */}
@@ -472,8 +500,8 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-xl font-black text-gray-900 tracking-wide uppercase">Publicaciones Recientes</h2>
-            <p className="text-gray-400 text-sm mt-0.5">Últimos insumos disponibles en la plataforma</p>
+            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase">Publicaciones Recientes</h2>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">Últimos insumos disponibles en la plataforma</p>
           </div>
           <Link to="/supplies" className="text-primary-600 font-semibold text-sm flex items-center gap-1 hover:underline">
             Ver todos <ChevronRight size={15} />
@@ -499,10 +527,10 @@ export default function Home() {
             {recent.map((s) => <ProductCard key={s.id} supply={s} />)}
           </div>
         ) : (
-          <div className="bg-white border-2 border-dashed border-gray-200 rounded-3xl py-20 text-center">
+          <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl py-20 text-center">
             <div className="text-6xl mb-4">📦</div>
-            <h3 className="text-xl font-bold text-gray-700 mb-2">Aún no hay publicaciones</h3>
-            <p className="text-gray-400 mb-6">Sé la primera persona en compartir un insumo médico</p>
+            <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">Aún no hay publicaciones</h3>
+            <p className="text-gray-400 dark:text-gray-500 mb-6">Sé la primera persona en compartir un insumo médico</p>
             {user && (
               <Link to="/publish" className="btn-primary inline-flex items-center gap-2">
                 Publicar ahora <ArrowRight size={16} />
@@ -513,13 +541,13 @@ export default function Home() {
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="bg-white border-y border-gray-100 py-14">
+      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
-            <span className="inline-flex items-center gap-2 text-primary-600 font-bold text-xs bg-primary-50 px-4 py-1.5 rounded-full mb-3 uppercase tracking-wide">
+            <span className="inline-flex items-center gap-2 text-primary-600 font-bold text-xs bg-primary-50 dark:bg-primary-900/30 px-4 py-1.5 rounded-full mb-3 uppercase tracking-wide">
               <Zap size={13} /> Simple y rápido
             </span>
-            <h2 className="text-2xl font-black text-gray-900">¿Cómo funciona?</h2>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">¿Cómo funciona?</h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-5">
@@ -528,13 +556,13 @@ export default function Home() {
               { step: '02', icon: HandHeart,   title: 'Conecta y coordina',        desc: 'Manda un mensaje, acuerda la entrega y coordina con el proveedor.',     color: 'bg-medical-600' },
               { step: '03', icon: CheckCircle, title: '¡Listo! Ayudas y recibes',  desc: 'Completa el intercambio. Cada acción suma a la comunidad de salud.',    color: 'bg-success-600' },
             ].map(({ step, icon: Icon, title, desc, color }) => (
-              <div key={step} className="bg-gray-50 rounded-3xl p-7 border border-gray-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
-                <span className="absolute top-4 right-5 text-7xl font-black text-gray-100 group-hover:text-primary-50 transition-colors leading-none">{step}</span>
+              <div key={step} className="bg-gray-50 dark:bg-gray-800 rounded-3xl p-7 border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-700 hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+                <span className="absolute top-4 right-5 text-7xl font-black text-gray-100 dark:text-gray-700 group-hover:text-primary-50 dark:group-hover:text-primary-900/30 transition-colors leading-none">{step}</span>
                 <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mb-5 shadow-md relative z-10`}>
                   <Icon size={22} className="text-white" />
                 </div>
-                <h3 className="font-bold text-gray-900 text-base mb-2 relative z-10">{title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed relative z-10">{desc}</p>
+                <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base mb-2 relative z-10">{title}</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed relative z-10">{desc}</p>
               </div>
             ))}
           </div>
@@ -597,19 +625,19 @@ export default function Home() {
       </section>
 
       {/* ── PUNTOS DE ENCUENTRO CDMX + EDOMEX ── */}
-      <section className="bg-white border-y border-gray-100 py-14">
+      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
 
             {/* Texto */}
             <div>
-              <div className="inline-flex items-center gap-2 bg-primary-50 border border-primary-200 text-primary-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide mb-5">
+              <div className="inline-flex items-center gap-2 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide mb-5">
                 <Train size={13} /> CDMX + Estado de México
               </div>
-              <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight">
-                Puntos de encuentro <span className="text-primary-600">seguros y accesibles</span>
+              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-4 leading-tight">
+                Puntos de encuentro <span className="text-primary-600 dark:text-primary-400">seguros y accesibles</span>
               </h2>
-              <p className="text-gray-500 text-sm leading-relaxed mb-6 max-w-md">
+              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6 max-w-md">
                 Definimos más de 30 puntos de intercambio cerca de hospitales públicos
                 y estaciones de metro con alta afluencia en CDMX y Estado de México.
                 Coordina tu entrega en un lugar seguro.
@@ -622,10 +650,10 @@ export default function Home() {
                   { value: MEETING_POINTS.filter(p => p.type === 'metro_edomex').length, label: 'Estaciones EDOMEX',        emoji: '🚈' },
                   { value: MEETING_POINTS.filter(p => p.type === 'hospital').length,     label: 'Hospitales de referencia', emoji: '🏥' },
                 ].map(({ value, label, emoji }) => (
-                  <div key={label} className="bg-gray-50 rounded-2xl p-3 text-center border border-gray-100">
+                  <div key={label} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 text-center border border-gray-100 dark:border-gray-700">
                     <p className="text-lg">{emoji}</p>
-                    <p className="text-xl font-black text-gray-900">{value}</p>
-                    <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{label}</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-gray-100">{value}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">{label}</p>
                   </div>
                 ))}
               </div>
@@ -639,7 +667,7 @@ export default function Home() {
                 </button>
                 <Link
                   to="/puntos-encuentro"
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
                 >
                   Ver todos los puntos <ArrowRight size={14} />
                 </Link>
@@ -659,11 +687,11 @@ export default function Home() {
               ) : (
                 <div
                   onClick={() => setShowMeetingMap(true)}
-                  className="h-[340px] rounded-2xl bg-gradient-to-br from-primary-50 to-medical-50 border-2 border-dashed border-primary-200 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:from-primary-100 hover:to-medical-100 transition-all duration-300 group"
+                  className="h-[340px] rounded-2xl bg-gradient-to-br from-primary-50 to-medical-50 dark:from-primary-900/20 dark:to-medical-900/20 border-2 border-dashed border-primary-200 dark:border-primary-800 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 dark:hover:border-primary-600 hover:from-primary-100 hover:to-medical-100 transition-all duration-300 group"
                 >
                   <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🗺️</div>
-                  <p className="text-gray-700 font-bold text-base mb-1">Mapa de Puntos de Encuentro</p>
-                  <p className="text-gray-400 text-sm mb-4">CDMX + Estado de México</p>
+                  <p className="text-gray-700 dark:text-gray-300 font-bold text-base mb-1">Mapa de Puntos de Encuentro</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm mb-4">CDMX + Estado de México</p>
                   <div className="flex gap-2 text-xs">
                     <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full font-semibold">🚇 Metro</span>
                     <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-semibold">🏥 Hospitales</span>

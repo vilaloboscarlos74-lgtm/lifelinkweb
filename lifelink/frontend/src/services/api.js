@@ -136,6 +136,11 @@ export const messagesAPI = {
   send: (data) => api.post('/messages/', data),
 };
 
+// === ESTADÍSTICAS PÚBLICAS ===
+export const statsAPI = {
+  getPublic: () => api.get('/stats'),
+};
+
 // === BLOOD DONOR RECORD ===
 export const bloodAPI = {
   getRecord: () => api.get('/blood/record'),
