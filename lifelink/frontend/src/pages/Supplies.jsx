@@ -5,10 +5,9 @@ import toast from 'react-hot-toast';
 import SupplyCard from '../components/SupplyCard';
 import {
   Search, SlidersHorizontal, X, Map, LayoutGrid,
-  ChevronLeft, ChevronRight, AlertCircle, Train,
+  ChevronLeft, ChevronRight, Train,
 } from 'lucide-react';
 
-const SupplyMap       = lazy(() => import('../components/SupplyMap'));
 const MeetingPointsMap = lazy(() => import('../components/MeetingPointsMap'));
 
 const CATEGORIES = [
@@ -56,9 +55,6 @@ export default function Supplies() {
 
   /* ── Map state ───────────────────────────────────────── */
   const [viewMode,    setViewMode]    = useState('grid');
-  const [mapTab,      setMapTab]      = useState('supplies'); // 'supplies' | 'meeting'
-  const [mapSupplies, setMapSupplies] = useState([]);
-  const [mapLoading,  setMapLoading]  = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   /* ── Helpers to update URL params ────────────────────── */
@@ -96,32 +92,12 @@ export default function Supplies() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.toString()]);
 
-  /* ── Fetch map supplies ──────────────────────────────── */
-  const fetchMapSupplies = useCallback(async () => {
-    setMapLoading(true);
-    try {
-      const params = { limit: 100 };
-      Object.entries(urlFilters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const res = await suppliesAPI.list(params);
-      setMapSupplies(res.data.items || []);
-    } catch { /* silent */ } finally {
-      setMapLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.toString()]);
-
   /* ── Re-fetch when URL params change ─────────────────── */
   useEffect(() => {
     fetchSupplies(1);
     setQueryInput(getParam('query'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.toString()]);
-
-  /* ── Also re-fetch map when filters change ───────────── */
-  useEffect(() => {
-    if (viewMode === 'map' && mapTab === 'supplies') fetchMapSupplies();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.toString(), viewMode, mapTab]);
 
   /* ── Submit text search ──────────────────────────────── */
   const handleSearch = (e) => {
@@ -130,10 +106,7 @@ export default function Supplies() {
   };
 
   /* ── Switch to map view ──────────────────────────────── */
-  const handleMapView = () => {
-    setViewMode('map');
-    fetchMapSupplies();
-  };
+  const handleMapView = () => setViewMode('map');
 
   const activeFilterCount = ['query','category','supply_type','condition','is_urgent','city']
     .filter((k) => urlFilters[k]).length;
@@ -217,6 +190,7 @@ export default function Supplies() {
                 <option value="donacion">Donación</option>
                 <option value="venta">Venta</option>
                 <option value="intercambio">Intercambio</option>
+                <option value="solicitud">Solicitud</option>
               </select>
             </div>
             <div>
@@ -279,7 +253,7 @@ export default function Supplies() {
           )}
           {urlFilters.supply_type && (
             <span className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-200 px-3 py-1 rounded-full text-xs font-medium">
-              {{ donacion: 'Donación', venta: 'Venta', intercambio: 'Intercambio' }[urlFilters.supply_type]}
+              {{ donacion: 'Donación', venta: 'Venta', intercambio: 'Intercambio', solicitud: 'Solicitud' }[urlFilters.supply_type]}
               <button onClick={() => setFilter('supply_type', '')}><X size={11} /></button>
             </span>
           )}
@@ -304,74 +278,27 @@ export default function Supplies() {
         </div>
       )}
 
-      {/* MAP VIEW */}
+      {/* MAP VIEW — puntos de encuentro */}
       {viewMode === 'map' && (
         <div className="mb-6 animate-fade-in">
-          {/* Map sub-tabs */}
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setMapTab('supplies')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                mapTab === 'supplies'
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Map size={15} /> Mapa de insumos
-            </button>
-            <button
-              onClick={() => setMapTab('meeting')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                mapTab === 'meeting'
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Train size={15} /> Puntos de encuentro
-            </button>
-          </div>
-
-          {mapTab === 'supplies' ? (
-            mapLoading ? (
-              <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
-                </div>
+          <Suspense fallback={
+            <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
               </div>
-            ) : (
-              <Suspense fallback={
-                <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <p className="text-gray-500 text-sm">Cargando mapa...</p>
-                </div>
-              }>
-                <SupplyMap supplies={mapSupplies} height="500px" />
-              </Suspense>
-            )
-          ) : (
-            <Suspense fallback={
-              <div className="h-[500px] rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <p className="text-gray-500 text-sm">Cargando mapa...</p>
-              </div>
-            }>
-              <MeetingPointsMap height="500px" showLegend />
-            </Suspense>
-          )}
-
-          <p className="text-xs text-gray-400 mt-2 text-center flex items-center justify-center gap-1">
-            {mapTab === 'supplies' ? (
-              <><AlertCircle size={11} /> Solo se muestran insumos con ciudad registrada. Haz clic en un marcador para ver detalles.</>
-            ) : (
-              <><Train size={11} /> 34 puntos de intercambio seguros en CDMX y Estado de México — metro y hospitales.</>
-            )}
-          </p>
-          {mapTab === 'meeting' && (
-            <div className="text-center mt-2">
-              <Link to="/puntos-encuentro" className="text-xs text-primary-600 font-semibold hover:underline">
-                Ver lista completa de puntos de encuentro →
-              </Link>
             </div>
-          )}
+          }>
+            <MeetingPointsMap height="500px" showLegend />
+          </Suspense>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center flex items-center justify-center gap-1">
+            <Train size={11} /> Puntos de intercambio seguros en CDMX y Estado de México — metro y hospitales.
+          </p>
+          <div className="text-center mt-2">
+            <Link to="/puntos-encuentro" className="text-xs text-primary-600 dark:text-primary-400 font-semibold hover:underline">
+              Ver lista completa de puntos de encuentro →
+            </Link>
+          </div>
         </div>
       )}
 

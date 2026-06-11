@@ -12,6 +12,8 @@ class SupplyCreate(BaseModel):
     category: SupplyCategory
     condition: Optional[SupplyCondition] = None
     price: Optional[float] = Field(None, ge=0)
+    budget_min: Optional[float] = Field(None, ge=0)
+    budget_max: Optional[float] = Field(None, ge=0)
     currency: str = Field("MXN", max_length=10)
     address: Optional[str] = None
     city: Optional[str] = Field(None, max_length=100)
@@ -38,6 +40,8 @@ class SupplyUpdate(BaseModel):
     condition: Optional[SupplyCondition] = None
     status: Optional[SupplyStatus] = None
     price: Optional[float] = Field(None, ge=0)
+    budget_min: Optional[float] = Field(None, ge=0)
+    budget_max: Optional[float] = Field(None, ge=0)
     address: Optional[str] = None
     city: Optional[str] = Field(None, max_length=100)
     state: Optional[str] = Field(None, max_length=100)
@@ -63,6 +67,8 @@ class SupplyResponse(BaseModel):
     condition: Optional[SupplyCondition] = None
     status: SupplyStatus
     price: Optional[float] = None
+    budget_min: Optional[float] = None
+    budget_max: Optional[float] = None
     currency: str = "MXN"
     address: Optional[str] = None
     city: Optional[str] = None

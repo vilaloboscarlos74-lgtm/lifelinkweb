@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
 import { MEETING_POINTS, TYPE_CONFIG as POINT_TYPE_CONFIG } from '../data/meetingPoints';
 import {
@@ -71,14 +71,14 @@ const CATEGORIES = [
   { value: 'protesis',      icon: '🦿', label: 'Prótesis',      desc: 'Prótesis y órtesis' },
   { value: 'mobiliario',    icon: '🛏️', label: 'Mobiliario',   desc: 'Camas, sillas, mesas' },
   { value: 'consumibles',   icon: '💉', label: 'Consumibles',   desc: 'Jeringas, gasas, guantes' },
-  { value: 'sangre',        icon: '🩸', label: 'Sangre',        desc: 'Donación de sangre' },
   { value: 'otro',          icon: '📦', label: 'Otro',          desc: 'Otros insumos médicos' },
 ];
 
 const SUPPLY_TYPES = [
-  { value: 'donacion',   icon: '🎁', label: 'Donación',    desc: 'Regalas el insumo sin costo',   color: 'border-medical-400 bg-medical-50 text-medical-700' },
-  { value: 'venta',      icon: '💰', label: 'Venta',       desc: 'Lo vendes a precio justo',       color: 'border-primary-400 bg-primary-50 text-primary-700' },
-  { value: 'intercambio',icon: '🔄', label: 'Intercambio', desc: 'Lo cambias por otro insumo',     color: 'border-brand-400 bg-brand-50 text-brand-700' },
+  { value: 'donacion',   icon: '🎁', label: 'Donación',    desc: 'Regalas el insumo sin costo',     color: 'border-medical-400 bg-medical-50 text-medical-700' },
+  { value: 'venta',      icon: '💰', label: 'Venta',       desc: 'Lo vendes a precio justo',         color: 'border-primary-400 bg-primary-50 text-primary-700' },
+  { value: 'intercambio',icon: '🔄', label: 'Intercambio', desc: 'Lo cambias por otro insumo',       color: 'border-brand-400 bg-brand-50 text-brand-700' },
+  { value: 'solicitud',  icon: '🔍', label: 'Solicitud',   desc: 'Buscas este insumo, defines precio máximo', color: 'border-amber-400 bg-amber-50 text-amber-700' },
 ];
 
 const CONDITIONS = [
@@ -151,6 +151,8 @@ function StepIndicator({ current }) {
 
 export default function CreateSupply() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = location.state?.prefill || {};
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState([]);
@@ -177,18 +179,20 @@ export default function CreateSupply() {
   useEffect(() => () => imageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    supply_type: '',
-    category: '',
-    condition: 'seminuevo',
+    title: prefill.title || '',
+    description: prefill.description || '',
+    supply_type: prefill.supply_type || '',
+    category: prefill.category || '',
+    condition: prefill.condition || 'seminuevo',
     price: '',
+    budget_min: '',
+    budget_max: '',
     city: '',
     state: '',
     quantity: 1,
     brand: '',
     model: '',
-    is_urgent: false,
+    is_urgent: prefill.is_urgent || false,
   });
 
   const set = (field) => (e) => {
@@ -211,6 +215,13 @@ export default function CreateSupply() {
     }
   }, [form.category]);
 
+  /* ── Forzar condición "nuevo" para consumibles ── */
+  useEffect(() => {
+    if (form.category === 'consumibles' && form.condition !== 'nuevo') {
+      setForm((p) => ({ ...p, condition: 'nuevo' }));
+    }
+  }, [form.category, form.condition]);
+
   /* ── Selección de punto de encuentro ── */
   const handleSelectPoint = useCallback((point) => {
     setSelectedPoint(point);
@@ -232,7 +243,9 @@ export default function CreateSupply() {
   const rules         = LEGAL_RULES[form.category];
   const isConsumibles = form.category === 'consumibles';
   const isUsed        = ['usado', 'usado_buen_estado'].includes(form.condition);
-  const isSangre      = form.category === 'sangre';
+  const isSangre      = false; // Sangre se maneja en /donors, no aquí
+  const isSolicitud   = form.supply_type === 'solicitud';
+  const isProtesiOrto = ['protesis', 'ortopedico'].includes(form.category);
 
   /* ── Validation ── */
   const validateStep = (s) => {
@@ -248,6 +261,9 @@ export default function CreateSupply() {
       if (form.description.trim().length < 10) { toast.error('La descripción debe tener al menos 10 caracteres'); return false; }
       if (form.supply_type === 'venta' && (!form.price || parseFloat(form.price) <= 0)) {
         toast.error('El precio es obligatorio para publicaciones de venta'); return false;
+      }
+      if (form.supply_type === 'solicitud' && form.budget_max && parseFloat(form.budget_max) <= 0) {
+        toast.error('El presupuesto máximo debe ser mayor a 0'); return false;
       }
       return true;
     }
@@ -308,8 +324,12 @@ export default function CreateSupply() {
         ...form,
         quantity: parseInt(form.quantity) || 1,
         price: form.supply_type === 'venta' && form.price ? parseFloat(form.price) : undefined,
+        budget_min: isSolicitud && form.budget_min ? parseFloat(form.budget_min) : undefined,
+        budget_max: isSolicitud && form.budget_max ? parseFloat(form.budget_max) : undefined,
       };
       if (!data.price) delete data.price;
+      if (!data.budget_min) delete data.budget_min;
+      if (!data.budget_max) delete data.budget_max;
 
       const res = await suppliesAPI.create(data);
       if (images.length > 0) await suppliesAPI.uploadImages(res.data.id, images);
@@ -344,15 +364,15 @@ export default function CreateSupply() {
                 disabled={locked}
                 className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-200 ${
                   locked
-                    ? 'border-gray-200 bg-gray-50 opacity-40 cursor-not-allowed'
+                    ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-40 cursor-not-allowed'
                     : form.supply_type === t.value
                     ? `${t.color} shadow-md`
-                    : 'border-gray-200 hover:-translate-y-0.5 hover:shadow-md hover:border-gray-300 bg-white'
+                    : 'border-gray-200 dark:border-gray-600 hover:-translate-y-0.5 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700'
                 }`}
               >
                 <div className="text-3xl mb-3">{t.icon}</div>
-                <p className="font-bold text-gray-900 text-sm">{t.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">{t.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.desc}</p>
                 {form.supply_type === t.value && !locked && (
                   <div className="absolute top-3 right-3 w-5 h-5 bg-current rounded-full flex items-center justify-center opacity-80">
                     <CheckCircle2 size={13} className="text-white" />
@@ -388,15 +408,15 @@ export default function CreateSupply() {
               onClick={() => setForm((p) => ({ ...p, category: cat.value }))}
               className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
                 form.category === cat.value
-                  ? 'border-primary-500 bg-primary-50 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 shadow-sm'
+                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700'
               }`}
             >
               <div className="text-2xl mb-2">{cat.icon}</div>
-              <p className={`text-xs font-bold ${form.category === cat.value ? 'text-primary-700' : 'text-gray-700'}`}>
+              <p className={`text-xs font-bold ${form.category === cat.value ? 'text-primary-700 dark:text-primary-400' : 'text-gray-700 dark:text-gray-200'}`}>
                 {cat.label}
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{cat.desc}</p>
             </button>
           ))}
         </div>
@@ -411,7 +431,7 @@ export default function CreateSupply() {
     <div className="space-y-5">
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-sm font-bold text-gray-900">Título *</label>
+          <label className="text-sm font-bold text-gray-900 dark:text-gray-100">Título *</label>
           <span className={`text-xs ${form.title.length > 90 ? 'text-accent-500' : 'text-gray-400'}`}>
             {form.title.length}/100
           </span>
@@ -429,7 +449,7 @@ export default function CreateSupply() {
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-sm font-bold text-gray-900">Descripción *</label>
+          <label className="text-sm font-bold text-gray-900 dark:text-gray-100">Descripción *</label>
           <span className={`text-xs ${form.description.length > 900 ? 'text-accent-500' : 'text-gray-400'}`}>
             {form.description.length}/1000
           </span>
@@ -449,11 +469,16 @@ export default function CreateSupply() {
 
       {/* Condición */}
       <div>
-        <label className="text-sm font-bold text-gray-900 mb-1.5 block">Condición del insumo</label>
+        <label className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 block">Condición del insumo</label>
+        {isConsumibles && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2 font-medium">
+            ⚠️ Los consumibles médicos (jeringas, agujas, catéteres, etc.) deben publicarse en condición <strong>nuevo</strong> únicamente.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
           {CONDITIONS.map((c) => {
-            /* Para sangre solo mostrar "nuevo" (es donación de sangre, no un objeto físico) */
             if (isSangre && c.value !== 'nuevo') return null;
+            if (isConsumibles && !['nuevo'].includes(c.value)) return null;
             return (
               <button
                 key={c.value}
@@ -461,14 +486,14 @@ export default function CreateSupply() {
                 onClick={() => setForm((p) => ({ ...p, condition: c.value }))}
                 className={`p-3 rounded-xl border-2 text-left transition-all ${
                   form.condition === c.value
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700'
                 }`}
               >
-                <p className={`text-sm font-semibold ${form.condition === c.value ? 'text-primary-700' : 'text-gray-700'}`}>
+                <p className={`text-sm font-semibold ${form.condition === c.value ? 'text-primary-700 dark:text-primary-400' : 'text-gray-700 dark:text-gray-200'}`}>
                   {c.label}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{c.desc}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{c.desc}</p>
               </button>
             );
           })}
@@ -488,7 +513,7 @@ export default function CreateSupply() {
       {/* Precio (solo si venta) */}
       {form.supply_type === 'venta' && (
         <div>
-          <label className="text-sm font-bold text-gray-900 mb-1.5 block">Precio (MXN) *</label>
+          <label className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 block">Precio (MXN) *</label>
           <div className="relative">
             <DollarSign size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -505,6 +530,46 @@ export default function CreateSupply() {
         </div>
       )}
 
+      {/* Presupuesto (solo si solicitud) */}
+      {isSolicitud && (
+        <div>
+          <label className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1.5 block">Presupuesto (MXN)</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Mínimo</p>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="number"
+                  className="input-field pl-9"
+                  placeholder="0"
+                  min="0"
+                  step="1"
+                  value={form.budget_min}
+                  onChange={set('budget_min')}
+                />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Máximo</p>
+              <div className="relative">
+                <DollarSign size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="number"
+                  className="input-field pl-9"
+                  placeholder="0"
+                  min="0"
+                  step="1"
+                  value={form.budget_max}
+                  onChange={set('budget_max')}
+                />
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Opcional — define cuánto estás dispuesto a pagar</p>
+        </div>
+      )}
+
       {/* ── ¿Incluye medicamentos con receta? ── */}
       {(isConsumibles || form.category === 'otro') && (
         <div className="space-y-2">
@@ -518,10 +583,10 @@ export default function CreateSupply() {
               className="mt-0.5 w-4 h-4 accent-red-500"
             />
             <div>
-              <p className={`text-sm font-bold ${hasPrescriptionMeds ? 'text-red-800' : 'text-gray-800'}`}>
+              <p className={`text-sm font-bold ${hasPrescriptionMeds ? 'text-red-800 dark:text-red-300' : 'text-gray-800 dark:text-gray-200'}`}>
                 ⚕️ Esta publicación incluye medicamentos con receta médica
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Antibióticos, analgésicos controlados, insulina, quimioterapias, etc.
               </p>
             </div>
@@ -535,10 +600,17 @@ export default function CreateSupply() {
         </div>
       )}
 
+      {/* Aviso de especificaciones para prótesis y ortopédico */}
+      {isProtesiOrto && (
+        <LegalNotice color="blue" icon={form.category === 'protesis' ? '🦿' : '🦽'}>
+          <strong>Especificaciones requeridas:</strong> Para {form.category === 'protesis' ? 'prótesis' : 'equipo ortopédico'} es obligatorio incluir en la descripción: <strong>talla/medidas</strong>, <strong>lado</strong> (derecho/izquierdo si aplica), <strong>marca y modelo</strong>, y <strong>estado de higiene</strong>. Esto garantiza que el receptor pueda evaluar si es adecuado para sus necesidades.
+        </LegalNotice>
+      )}
+
       {/* Aviso para equipo ortopédico/prótesis de segunda mano */}
-      {(form.category === 'protesis' || form.category === 'ortopedico') && isUsed && (
-        <LegalNotice color="amber" icon="🦿">
-          <strong>Importante:</strong> Las prótesis y el equipo ortopédico de segunda mano deben estar limpios y en condiciones de uso seguro. Se recomienda que el receptor consulte a un especialista antes de utilizarlos. Incluye en la descripción el tamaño, medidas y condición exacta del equipo.
+      {isProtesiOrto && isUsed && (
+        <LegalNotice color="amber" icon="⚠️">
+          <strong>Importante:</strong> El equipo de segunda mano debe estar limpio y en condiciones de uso seguro. Se recomienda que el receptor consulte a un especialista antes de utilizarlo.
         </LegalNotice>
       )}
 
@@ -561,7 +633,7 @@ export default function CreateSupply() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <MapPin size={16} className="text-primary-600" />
-          <span className="font-bold text-gray-900 text-sm">Punto de encuentro</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Punto de encuentro</span>
           <span className="ml-auto text-xs text-gray-400 font-medium">Opcional</span>
         </div>
         <p className="text-xs text-gray-500 mb-3">
@@ -647,21 +719,21 @@ export default function CreateSupply() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Tag size={16} className="text-primary-600" />
-          <span className="font-bold text-gray-900 text-sm">Detalles del producto</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Detalles del producto</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Marca</label>
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Marca</label>
             <input type="text" className="input-field text-sm" placeholder="Ej: Drive Medical"
               value={form.brand} onChange={set('brand')} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Modelo</label>
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Modelo</label>
             <input type="text" className="input-field text-sm" placeholder="Ej: STD18FA-4E"
               value={form.model} onChange={set('model')} />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Cantidad</label>
+            <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Cantidad</label>
             <input type="number" className="input-field text-sm" min="1"
               max={isSangre ? 1 : 999}
               value={form.quantity} onChange={set('quantity')}
@@ -706,7 +778,7 @@ export default function CreateSupply() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <ImagePlus size={16} className="text-primary-600" />
-          <span className="font-bold text-gray-900 text-sm">Imágenes del insumo</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Imágenes del insumo</span>
           <span className="text-xs text-gray-400 ml-auto">{images.length}/5</span>
         </div>
         <p className="text-xs text-gray-500 mb-4">
@@ -829,6 +901,15 @@ export default function CreateSupply() {
               <span className="font-semibold text-primary-700">${parseFloat(form.price || 0).toLocaleString('es-MX')} MXN</span>
             </div>
           )}
+          {isSolicitud && (form.budget_min || form.budget_max) && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Presupuesto</span>
+              <span className="font-semibold text-amber-700">
+                {form.budget_min ? `$${parseFloat(form.budget_min).toLocaleString('es-MX')}` : '$0'} –{' '}
+                {form.budget_max ? `$${parseFloat(form.budget_max).toLocaleString('es-MX')} MXN` : 'sin límite'}
+              </span>
+            </div>
+          )}
           {selectedPoint && (
             <div className="flex justify-between">
               <span className="text-gray-500">Punto de entrega</span>
@@ -866,8 +947,16 @@ export default function CreateSupply() {
             <Package size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-tight">Publicar Insumo</h1>
-            <p className="text-gray-500 dark:text-gray-400 text-xs">Comparte un insumo médico con la comunidad</p>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100 leading-tight">
+              {form.supply_type === 'solicitud' ? 'Solicitar Insumo' : 'Publicar Insumo'}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
+              {prefill.is_urgent
+                ? '⚡ Solicitud urgente — pre-rellenada con el insumo seleccionado'
+                : form.supply_type === 'solicitud'
+                ? '🔍 Publica lo que necesitas y recibe ofertas de la comunidad'
+                : 'Comparte un insumo médico con la comunidad'}
+            </p>
           </div>
         </div>
       </div>

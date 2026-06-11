@@ -12,6 +12,7 @@ class SupplyType(str, enum.Enum):
     DONACION = "donacion"
     VENTA = "venta"
     INTERCAMBIO = "intercambio"
+    SOLICITUD = "solicitud"
 
 
 class SupplyCategory(str, enum.Enum):
@@ -62,6 +63,8 @@ class Supply(Base):
     status = Column(SQLEnum(SupplyStatus), default=SupplyStatus.DISPONIBLE, index=True)
 
     price = Column(Float, nullable=True)
+    budget_min = Column(Float, nullable=True)
+    budget_max = Column(Float, nullable=True)
     currency = Column(String(10), default="MXN")
 
     address = Column(String(300), nullable=True)

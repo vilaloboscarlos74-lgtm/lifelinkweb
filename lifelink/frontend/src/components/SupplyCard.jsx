@@ -6,6 +6,7 @@ const TYPE_LABELS = {
   donacion:   { label: 'Donación',    cls: 'badge-donation' },
   venta:      { label: 'Venta',       cls: 'badge-sale' },
   intercambio:{ label: 'Intercambio', cls: 'badge-exchange' },
+  solicitud:  { label: 'Solicitud',   cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full' },
 };
 
 const CATEGORY_ICONS = {
@@ -103,10 +104,19 @@ export default function SupplyCard({ supply, onFavorite }) {
             ${supply.price.toLocaleString('es-MX')}
             <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">{supply.currency}</span>
           </p>
+        ) : supply.supply_type === 'solicitud' ? (
+          <div className="flex items-center gap-1 mb-1">
+            <Tag size={12} className="text-amber-600 dark:text-amber-400" />
+            <p className="text-sm font-bold text-amber-600 dark:text-amber-400">
+              {supply.budget_max
+                ? `Presupuesto: $${supply.budget_min ? supply.budget_min.toLocaleString('es-MX') + ' – ' : ''}$${supply.budget_max.toLocaleString('es-MX')}`
+                : 'Busca este insumo'}
+            </p>
+          </div>
         ) : supply.supply_type === 'donacion' ? (
           <div className="flex items-center gap-1 mb-1">
             <Tag size={12} className="text-medical-600 dark:text-medical-400" />
-            <p className="text-sm font-bold text-medical-600 dark:text-medical-400">Donación gratuita</p>
+            <p className="text-sm font-bold text-medical-600 dark:text-medical-400">Donación</p>
           </div>
         ) : (
           <div className="flex items-center gap-1 mb-1">
