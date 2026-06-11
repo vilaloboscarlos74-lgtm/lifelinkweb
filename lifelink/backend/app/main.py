@@ -42,30 +42,30 @@ settings = get_settings()
 # STARTUP / SHUTDOWN
 # ==========================================
 def _run_migrations():
-    """Ejecuta migraciones incrementales que create_all no cubre."""
+    """Ejecuta migraciones incrementales que create_all no cubre.
+    Usa AUTOCOMMIT porque ALTER TYPE no puede ejecutarse dentro de una transacción."""
     from sqlalchemy import text
-    migrations = [
-        # Enum: nuevo valor solicitud
+
+    # DDL statements que requieren AUTOCOMMIT (ALTER TYPE, ALTER TABLE ADD COLUMN)
+    ddl_statements = [
         "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
-        # Columnas supply
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_max FLOAT",
-        # Columnas users — 2FA SMS
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp VARCHAR(6)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp_expires TIMESTAMPTZ",
-        # Columnas users — 2FA Email
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp VARCHAR(6)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ",
     ]
-    with engine.connect() as conn:
-        for sql in migrations:
+
+    # AUTOCOMMIT es necesario para ALTER TYPE en PostgreSQL
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        for sql in ddl_statements:
             try:
                 conn.execute(text(sql))
-                conn.commit()
+                logger.info(f"Migración OK: {sql[:60]}")
             except Exception as e:
-                conn.rollback()
                 logger.warning(f"Migración omitida ({sql[:50]}...): {e}")
 
 

@@ -389,11 +389,11 @@ export default function Home() {
       {(urgent.length > 0 || loading) && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <span className="w-3 h-3 bg-accent-500 rounded-full animate-pulse" />
-              <h2 className="text-xl font-black text-gray-900 dark:text-gray-100">Solicitudes Urgentes</h2>
-              <span className="text-xs bg-accent-100 text-accent-700 font-bold px-2.5 py-0.5 rounded-full border border-accent-200">
-                Atención inmediata
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="w-3 h-3 bg-accent-500 rounded-full animate-pulse shrink-0" />
+              <h2 className="text-xl font-black text-gray-900 dark:text-white">Solicitudes Urgentes</h2>
+              <span className="text-xs bg-accent-500 text-white font-bold px-2.5 py-1 rounded-full">
+                ⚡ Atención inmediata
               </span>
             </div>
             <Link to="/supplies?is_urgent=true" className="text-accent-600 font-semibold text-sm flex items-center gap-1 hover:underline">
@@ -496,8 +496,8 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 tracking-wide uppercase">Publicaciones Recientes</h2>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-0.5">Últimos insumos disponibles en la plataforma</p>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-wide uppercase">Publicaciones Recientes</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-0.5">Últimos insumos disponibles en la plataforma</p>
           </div>
           <Link to="/supplies" className="text-primary-600 font-semibold text-sm flex items-center gap-1 hover:underline">
             Ver todos <ChevronRight size={15} />
@@ -565,140 +565,97 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── MAP ── */}
-      <section className="bg-gradient-to-br from-[#0f1b35] to-[#0a2850] py-14 overflow-hidden relative">
+      {/* ── MAPA UNIFICADO ── */}
+      <section className="bg-gradient-to-br from-slate-900 to-slate-800 py-14 overflow-hidden relative">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-medical-400/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-medical-400/8 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-400/8 rounded-full blur-3xl" />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
-          <div className="grid lg:grid-cols-2 gap-10 items-center">
-            <div className="text-white">
-              <span className="inline-flex items-center gap-2 text-medical-300 font-semibold text-xs bg-medical-900/50 border border-medical-700/50 px-4 py-1.5 rounded-full mb-4 uppercase tracking-wide">
-                <MapPin size={12} /> Mapa interactivo
+
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+            <div>
+              <span className="inline-flex items-center gap-2 text-medical-300 font-semibold text-xs bg-medical-900/50 border border-medical-700/50 px-3 py-1 rounded-full mb-3 uppercase tracking-wide">
+                <MapPin size={11} /> Mapa interactivo
               </span>
-              <h2 className="text-3xl font-black mb-4 leading-tight">
-                Encuentra insumos <span className="text-medical-300">cerca de ti</span>
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight">
+                Encuentra lo que necesitas <span className="text-medical-300">cerca de ti</span>
               </h2>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-md">
-                Visualiza en el mapa todos los insumos disponibles por ciudad en México. Haz clic en un marcador para ver los productos disponibles.
+              <p className="text-slate-400 text-sm mt-2 max-w-lg">
+                Insumos disponibles en todo México y puntos de encuentro seguros para coordinar entregas en CDMX y Edomex.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setShowMap((v) => !v)}
-                  className="bg-medical-500 hover:bg-medical-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg"
-                >
-                  <MapPin size={15} /> {showMap ? 'Ocultar mapa' : 'Ver mapa'}
-                </button>
-                <Link to="/supplies" className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2">
-                  Ver lista completa
-                </Link>
-              </div>
             </div>
 
-            <div>
-              {showMap ? (
-                <Suspense fallback={
-                  <div className="h-[340px] rounded-2xl bg-white/10 flex items-center justify-center text-white/50 text-sm">Cargando mapa...</div>
-                }>
-                  <SupplyMap supplies={allForMap} height="340px" />
-                </Suspense>
-              ) : (
-                <div
-                  onClick={() => setShowMap(true)}
-                  className="h-[340px] rounded-2xl bg-white/10 border border-white/20 flex flex-col items-center justify-center cursor-pointer hover:bg-white/15 transition-all duration-300 group"
-                >
-                  <div className="text-7xl mb-4 group-hover:scale-110 transition-transform duration-300">🗺️</div>
-                  <p className="text-white font-bold text-lg mb-1">Mapa de Insumos</p>
-                  <p className="text-slate-400 text-sm">Haz clic para cargar el mapa interactivo</p>
-                  <div className="mt-4 bg-medical-500/80 hover:bg-medical-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
-                    <MapPin size={14} /> Abrir mapa
-                  </div>
-                </div>
-              )}
+            {/* Tabs para cambiar el mapa */}
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => { setShowMap(true); setShowMeetingMap(false); }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all
+                  ${showMap && !showMeetingMap
+                    ? 'bg-medical-500 text-white shadow-lg'
+                    : 'bg-white/10 text-white/70 hover:bg-white/20 border border-white/10'}`}
+              >
+                <Package size={14} /> Insumos
+              </button>
+              <button
+                onClick={() => { setShowMeetingMap(true); setShowMap(false); }}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all
+                  ${showMeetingMap && !showMap
+                    ? 'bg-primary-500 text-white shadow-lg'
+                    : 'bg-white/10 text-white/70 hover:bg-white/20 border border-white/10'}`}
+              >
+                <Train size={14} /> Puntos seguros
+              </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ── PUNTOS DE ENCUENTRO CDMX + EDOMEX ── */}
-      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-2 gap-10 items-center">
-
-            {/* Texto */}
-            <div>
-              <div className="inline-flex items-center gap-2 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide mb-5">
-                <Train size={13} /> CDMX + Estado de México
+          {/* Stats mini */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {[
+              { value: MEETING_POINTS.filter(p => p.type === 'metro_cdmx').length,   label: 'Metro CDMX',   emoji: '🚇', color: 'border-blue-500/30 bg-blue-500/10' },
+              { value: MEETING_POINTS.filter(p => p.type === 'metro_edomex').length, label: 'EDOMEX',       emoji: '🚈', color: 'border-purple-500/30 bg-purple-500/10' },
+              { value: MEETING_POINTS.filter(p => p.type === 'hospital').length,     label: 'Hospitales',   emoji: '🏥', color: 'border-red-500/30 bg-red-500/10' },
+              { value: allForMap.length,                                              label: 'Insumos activos', emoji: '📦', color: 'border-medical-500/30 bg-medical-500/10' },
+            ].map(({ value, label, emoji, color }) => (
+              <div key={label} className={`rounded-xl p-3 text-center border ${color}`}>
+                <p className="text-xl">{emoji}</p>
+                <p className="text-xl font-black text-white">{value}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>
               </div>
-              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-4 leading-tight">
-                Puntos de encuentro <span className="text-primary-600 dark:text-primary-400">seguros y accesibles</span>
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-6 max-w-md">
-                Definimos más de 30 puntos de intercambio cerca de hospitales públicos
-                y estaciones de metro con alta afluencia en CDMX y Estado de México.
-                Coordina tu entrega en un lugar seguro.
-              </p>
+            ))}
+          </div>
 
-              {/* Stats rápidos */}
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                {[
-                  { value: MEETING_POINTS.filter(p => p.type === 'metro_cdmx').length,   label: 'Estaciones metro CDMX',    emoji: '🚇' },
-                  { value: MEETING_POINTS.filter(p => p.type === 'metro_edomex').length, label: 'Estaciones EDOMEX',        emoji: '🚈' },
-                  { value: MEETING_POINTS.filter(p => p.type === 'hospital').length,     label: 'Hospitales de referencia', emoji: '🏥' },
-                ].map(({ value, label, emoji }) => (
-                  <div key={label} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 text-center border border-gray-100 dark:border-gray-700">
-                    <p className="text-lg">{emoji}</p>
-                    <p className="text-xl font-black text-gray-900 dark:text-gray-100">{value}</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-0.5">{label}</p>
-                  </div>
-                ))}
+          {/* Mapa */}
+          <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            {!showMap && !showMeetingMap ? (
+              <div className="h-[420px] bg-white/5 flex flex-col items-center justify-center gap-4 cursor-pointer group"
+                onClick={() => setShowMap(true)}>
+                <div className="text-7xl group-hover:scale-110 transition-transform duration-300">🗺️</div>
+                <p className="text-white font-bold text-lg">Haz clic para cargar el mapa</p>
+                <p className="text-slate-400 text-sm">Selecciona "Insumos" o "Puntos seguros" arriba</p>
               </div>
+            ) : showMap ? (
+              <Suspense fallback={<div className="h-[420px] bg-white/5 flex items-center justify-center text-white/50">Cargando mapa de insumos...</div>}>
+                <SupplyMap supplies={allForMap} height="420px" />
+              </Suspense>
+            ) : (
+              <Suspense fallback={<div className="h-[420px] bg-white/5 flex items-center justify-center text-white/50">Cargando puntos de encuentro...</div>}>
+                <MeetingPointsMap height="420px" showLegend />
+              </Suspense>
+            )}
+          </div>
 
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setShowMeetingMap(v => !v)}
-                  className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-md"
-                >
-                  <MapPin size={15} /> {showMeetingMap ? 'Ocultar mapa' : 'Ver mapa'}
-                </button>
-                <Link
-                  to="/puntos-encuentro"
-                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
-                >
-                  Ver todos los puntos <ArrowRight size={14} />
-                </Link>
-              </div>
-            </div>
-
-            {/* Mapa preview */}
-            <div>
-              {showMeetingMap ? (
-                <Suspense fallback={
-                  <div className="h-[340px] bg-gray-100 rounded-2xl flex items-center justify-center text-gray-400 text-sm">
-                    Cargando mapa...
-                  </div>
-                }>
-                  <MeetingPointsMap height="340px" showLegend />
-                </Suspense>
-              ) : (
-                <div
-                  onClick={() => setShowMeetingMap(true)}
-                  className="h-[340px] rounded-2xl bg-gradient-to-br from-primary-50 to-medical-50 dark:from-primary-900/20 dark:to-medical-900/20 border-2 border-dashed border-primary-200 dark:border-primary-800 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 dark:hover:border-primary-600 hover:from-primary-100 hover:to-medical-100 transition-all duration-300 group"
-                >
-                  <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">🗺️</div>
-                  <p className="text-gray-700 dark:text-gray-300 font-bold text-base mb-1">Mapa de Puntos de Encuentro</p>
-                  <p className="text-gray-400 dark:text-gray-500 text-sm mb-4">CDMX + Estado de México</p>
-                  <div className="flex gap-2 text-xs">
-                    <span className="bg-primary-100 text-primary-700 px-3 py-1 rounded-full font-semibold">🚇 Metro</span>
-                    <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full font-semibold">🏥 Hospitales</span>
-                    <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-semibold">🚈 EDOMEX</span>
-                  </div>
-                  <p className="text-primary-600 font-bold text-sm mt-4 flex items-center gap-1">
-                    <MapPin size={13} /> Haz clic para cargar
-                  </p>
-                </div>
-              )}
-            </div>
+          {/* Links adicionales */}
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Link to="/supplies"
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+              Ver todos los insumos <ArrowRight size={13} />
+            </Link>
+            <Link to="/puntos-encuentro"
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+              Ver todos los puntos <ArrowRight size={13} />
+            </Link>
           </div>
         </div>
       </section>
