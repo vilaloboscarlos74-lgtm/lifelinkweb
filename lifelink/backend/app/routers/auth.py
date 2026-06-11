@@ -18,7 +18,7 @@ from app.utils.security import (
     hash_password, verify_password,
     create_access_token, create_temp_token, decode_token,
 )
-from app.utils.email import send_verification_email, send_2fa_enabled_email
+from app.utils.email import send_verification_email, send_2fa_enabled_email, send_otp_email
 from app.utils.sms import generate_otp, get_otp_expiry, send_sms_otp
 from app.config import get_settings
 
@@ -54,6 +54,7 @@ def _make_user_payload(user: User) -> dict:
         "email_verified": user.email_verified,
         "totp_enabled": user.totp_enabled,
         "sms_2fa_enabled": user.sms_2fa_enabled,
+        "email_2fa_enabled": user.email_2fa_enabled,
     }
 
 
@@ -145,6 +146,18 @@ async def login(
         return {
             "requires_2fa": True,
             "method": "sms",
+            "temp_token": create_temp_token(user.id),
+        }
+
+    if user.email_2fa_enabled:
+        otp = generate_otp()
+        user.email_otp = otp
+        user.email_otp_expires = get_otp_expiry()
+        db.commit()
+        await send_otp_email(user.email, user.username, otp)
+        return {
+            "requires_2fa": True,
+            "method": "email",
             "temp_token": create_temp_token(user.id),
         }
 
@@ -370,6 +383,130 @@ def sms_2fa_disable(
 
 
 # ── 2FA SMS: VERIFICAR EN LOGIN ───────────────────────────────────────────────
+
+# ── 2FA EMAIL: CONFIGURAR ────────────────────────────────────────────────────
+
+@router.post("/2fa/email/setup")
+async def email_2fa_setup(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Envía un OTP de prueba al correo del usuario para configurar Email 2FA."""
+    otp = generate_otp()
+    current_user.email_otp = otp
+    current_user.email_otp_expires = get_otp_expiry()
+    db.commit()
+    await send_otp_email(current_user.email, current_user.username, otp)
+    return {"message": f"Código enviado a {current_user.email}"}
+
+
+@router.post("/2fa/email/enable")
+def email_2fa_enable(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Verifica el OTP recibido por correo y activa el 2FA por email."""
+    code = payload.get("code", "")
+    if not current_user.email_otp or not current_user.email_otp_expires:
+        raise HTTPException(status_code=400, detail="No hay código pendiente. Llama a /2fa/email/setup primero")
+
+    expires = current_user.email_otp_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado. Solicita uno nuevo")
+
+    if current_user.email_otp != code:
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+
+    current_user.email_2fa_enabled = True
+    current_user.email_otp = None
+    current_user.email_otp_expires = None
+    db.commit()
+    return {"message": "2FA por correo activado correctamente"}
+
+
+@router.post("/2fa/email/disable")
+def email_2fa_disable(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Desactiva el 2FA por correo (requiere contraseña actual)."""
+    from app.utils.security import verify_password
+    password = payload.get("password", "")
+    if not verify_password(password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+    if not current_user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="El 2FA por correo no está activo")
+
+    current_user.email_2fa_enabled = False
+    db.commit()
+    return {"message": "2FA por correo desactivado"}
+
+
+# ── 2FA EMAIL: VERIFICAR EN LOGIN ─────────────────────────────────────────────
+
+@router.post("/2fa/email/send")
+@_limit("5/minute")
+async def email_2fa_send(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """Reenvía el OTP por correo durante el flujo de login."""
+    temp_token = payload.get("temp_token", "")
+    decoded = decode_token(temp_token)
+    if not decoded or not decoded.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
+
+    user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Email 2FA no configurado para este usuario")
+
+    otp = generate_otp()
+    user.email_otp = otp
+    user.email_otp_expires = get_otp_expiry()
+    db.commit()
+    await send_otp_email(user.email, user.username, otp)
+    return {"message": "Código reenviado"}
+
+
+@router.post("/2fa/email/verify")
+@_limit("5/minute")
+async def email_2fa_verify(request: Request, payload: dict, db: Session = Depends(get_db)):
+    """Verifica el OTP de correo durante el login y devuelve el token de acceso."""
+    temp_token = payload.get("temp_token", "")
+    code = payload.get("code", "")
+
+    decoded = decode_token(temp_token)
+    if not decoded or not decoded.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
+
+    user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Email 2FA no configurado para este usuario")
+
+    if not user.email_otp or not user.email_otp_expires:
+        raise HTTPException(status_code=400, detail="No hay código pendiente. Usa /2fa/email/send para solicitar uno")
+
+    expires = user.email_otp_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado")
+
+    if user.email_otp != code:
+        raise HTTPException(status_code=401, detail="Código incorrecto")
+
+    user.email_otp = None
+    user.email_otp_expires = None
+    db.commit()
+
+    access_token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": access_token, "token_type": "bearer", "user": _make_user_payload(user)}
+
 
 @router.post("/2fa/sms/send")
 @_limit("5/minute")

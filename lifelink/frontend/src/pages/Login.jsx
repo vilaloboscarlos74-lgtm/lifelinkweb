@@ -19,7 +19,7 @@ export default function Login() {
       const result = await login(form.username, form.password);
       // 2FA requerido — redirigir a pantalla de código
       if (result?.requires_2fa) {
-        navigate(`/2fa-verify?temp_token=${result.temp_token}`);
+        navigate(`/2fa-verify?temp_token=${result.temp_token}&method=${result.method || 'totp'}`);
         return;
       }
       toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
@@ -33,7 +33,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center px-4 py-10 -mx-4 sm:-mx-6">
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-white rounded-4xl shadow-2xl overflow-hidden border border-gray-100">
+      <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-white dark:bg-gray-900 rounded-4xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
 
         {/* Left panel */}
         <div className="hidden lg:flex relative bg-hero-gradient text-white p-10 flex-col justify-between overflow-hidden">
@@ -91,13 +91,13 @@ export default function Login() {
             </div>
 
             <div className="mb-8">
-              <h2 className="text-3xl font-black text-gray-900 mb-1.5">Iniciar Sesión</h2>
-              <p className="text-gray-500 text-sm">Accede a tu cuenta de LifeLink</p>
+              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1.5">Iniciar Sesión</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Accede a tu cuenta de LifeLink</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   Usuario o correo
                 </label>
                 <input
@@ -111,7 +111,7 @@ export default function Login() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   Contraseña
                 </label>
                 <div className="relative">
@@ -145,7 +145,7 @@ export default function Login() {
                 )}
               </button>
 
-              <p className="text-center text-sm text-gray-500 pt-1">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-1">
                 ¿No tienes cuenta?{' '}
                 <Link to="/register" className="text-primary-600 font-bold hover:underline">
                   Regístrate gratis

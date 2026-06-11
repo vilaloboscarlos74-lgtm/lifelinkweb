@@ -59,6 +59,13 @@ export const authAPI = {
   enable2FA: (code) => api.post('/auth/2fa/enable', { code }),
   disable2FA: (code) => api.post('/auth/2fa/disable', { code }),
   verify2FA: (tempToken, code) => api.post('/auth/2fa/verify', { temp_token: tempToken, code }),
+
+  // 2FA por correo
+  setupEmail2FA: () => api.post('/auth/2fa/email/setup'),
+  enableEmail2FA: (code) => api.post('/auth/2fa/email/enable', { code }),
+  disableEmail2FA: (password) => api.post('/auth/2fa/email/disable', { password }),
+  sendEmail2FA: (tempToken) => api.post('/auth/2fa/email/send', { temp_token: tempToken }),
+  verifyEmail2FA: (tempToken, code) => api.post('/auth/2fa/email/verify', { temp_token: tempToken, code }),
 };
 
 // === USERS ===

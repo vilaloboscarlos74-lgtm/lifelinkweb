@@ -61,6 +61,11 @@ class User(Base):
     sms_otp = Column(String(6), nullable=True)
     sms_otp_expires = Column(DateTime(timezone=True), nullable=True)
 
+    # 2FA Email
+    email_2fa_enabled = Column(Boolean, default=False, nullable=False)
+    email_otp = Column(String(6), nullable=True)
+    email_otp_expires = Column(DateTime(timezone=True), nullable=True)
+
     # Calificación
     rating_avg = Column(Float, default=0.0)
 

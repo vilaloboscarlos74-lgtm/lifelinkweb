@@ -82,6 +82,38 @@ async def send_verification_email(to_email: str, username: str, token: str) -> N
     await send_email(to_email, "Verifica tu correo — LifeLink Medical", html)
 
 
+async def send_otp_email(to_email: str, username: str, otp: str) -> None:
+    html = f"""
+    <div style="{_BASE_STYLE}">
+      {_HEADER}
+      <div style="padding:32px 36px;background:#fff;">
+        <h2 style="color:#0c5d8a;margin:0 0 12px;">Tu código de verificación</h2>
+        <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
+          Hola <strong>{username}</strong>, usa el siguiente código para completar
+          tu inicio de sesión en LifeLink Medical:
+        </p>
+        <div style="text-align:center;margin:28px 0;">
+          <div style="display:inline-block;background:#f0f9ff;border:2px solid #0770a8;
+                      border-radius:16px;padding:20px 40px;">
+            <span style="font-size:36px;font-weight:900;letter-spacing:12px;
+                         color:#0770a8;font-family:monospace;">{otp}</span>
+          </div>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.6;margin:0;text-align:center;">
+          Este código expira en <strong>10 minutos</strong>.<br>
+          Si no intentaste iniciar sesión, cambia tu contraseña de inmediato.
+        </p>
+      </div>
+      <div style="padding:16px;text-align:center;background:#f1f5f9;">
+        <p style="color:#94a3b8;font-size:11px;margin:0;">
+          © 2026 LifeLink Medical · México
+        </p>
+      </div>
+    </div>
+    """
+    await send_email(to_email, f"Tu código LifeLink: {otp}", html)
+
+
 async def send_2fa_enabled_email(to_email: str, username: str) -> None:
     html = f"""
     <div style="{_BASE_STYLE}">
