@@ -21,13 +21,14 @@ _HEADER = """
 """
 
 
-async def send_email(to: str, subject: str, html: str) -> None:
+async def send_email(to: str, subject: str, html: str) -> bool:
+    """Devuelve True si el correo se envió, False si no hay clave configurada."""
     from app.config import get_settings
     settings = get_settings()
 
     if not settings.RESEND_API_KEY:
-        logger.warning("EMAIL SKIP: RESEND_API_KEY no configurada")
-        return
+        logger.warning("EMAIL SKIP: RESEND_API_KEY no configurada — el correo NO se envió")
+        return False
 
     resend.api_key = settings.RESEND_API_KEY
     try:
@@ -38,8 +39,10 @@ async def send_email(to: str, subject: str, html: str) -> None:
             "html": html,
         })
         logger.info(f"EMAIL OK: enviado a {to}")
+        return True
     except Exception as e:
-        logger.error(f"EMAIL ERROR: {e}")
+        logger.error(f"EMAIL ERROR enviando a {to}: {e}")
+        raise
 
 
 async def send_verification_email(to_email: str, username: str, token: str) -> None:
@@ -111,7 +114,7 @@ async def send_otp_email(to_email: str, username: str, otp: str) -> None:
       </div>
     </div>
     """
-    await send_email(to_email, f"Tu código LifeLink: {otp}", html)
+    return await send_email(to_email, f"Tu código LifeLink: {otp}", html)
 
 
 async def send_2fa_enabled_email(to_email: str, username: str) -> None:

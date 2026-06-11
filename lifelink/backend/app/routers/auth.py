@@ -154,7 +154,12 @@ async def login(
         user.email_otp = otp
         user.email_otp_expires = get_otp_expiry()
         db.commit()
-        await send_otp_email(user.email, user.username, otp)
+        sent = await send_otp_email(user.email, user.username, otp)
+        if not sent:
+            raise HTTPException(
+                status_code=503,
+                detail="No se pudo enviar el código por correo. Contacta al administrador."
+            )
         return {
             "requires_2fa": True,
             "method": "email",
@@ -396,7 +401,12 @@ async def email_2fa_setup(
     current_user.email_otp = otp
     current_user.email_otp_expires = get_otp_expiry()
     db.commit()
-    await send_otp_email(current_user.email, current_user.username, otp)
+    sent = await send_otp_email(current_user.email, current_user.username, otp)
+    if not sent:
+        raise HTTPException(
+            status_code=503,
+            detail="El servicio de correo no está configurado. Contacta al administrador."
+        )
     return {"message": f"Código enviado a {current_user.email}"}
 
 
@@ -465,7 +475,9 @@ async def email_2fa_send(request: Request, payload: dict, db: Session = Depends(
     user.email_otp = otp
     user.email_otp_expires = get_otp_expiry()
     db.commit()
-    await send_otp_email(user.email, user.username, otp)
+    sent = await send_otp_email(user.email, user.username, otp)
+    if not sent:
+        raise HTTPException(status_code=503, detail="El servicio de correo no está configurado")
     return {"message": "Código reenviado"}
 
 
