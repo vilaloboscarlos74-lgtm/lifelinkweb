@@ -99,3 +99,4 @@ class User(Base):
     blood_donor_record = relationship(
         "BloodDonorRecord", back_populates="user", uselist=False
     )
+    search_alerts = relationship("SearchAlert", back_populates="user", cascade="all, delete-orphan")

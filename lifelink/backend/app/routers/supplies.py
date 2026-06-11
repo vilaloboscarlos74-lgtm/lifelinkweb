@@ -31,6 +31,38 @@ def _load_supply(db: Session, supply_id: int) -> Supply:
     return supply
 
 
+def _fire_alerts(supply: Supply, db: Session):
+    """Crea notificaciones para alertas que coinciden con el nuevo insumo."""
+    from app.models.alert import SearchAlert
+    from app.models.notification import Notification, NotificationType
+
+    alerts = db.query(SearchAlert).filter(
+        SearchAlert.is_active == True,
+        SearchAlert.user_id != supply.owner_id,
+    ).all()
+
+    for alert in alerts:
+        if alert.category and alert.category != supply.category:
+            continue
+        if alert.supply_type and alert.supply_type != supply.supply_type:
+            continue
+        if alert.city and supply.city and alert.city.lower() not in supply.city.lower():
+            continue
+        if alert.query and alert.query.lower() not in (supply.title + " " + (supply.description or "")).lower():
+            continue
+
+        notif = Notification(
+            user_id=alert.user_id,
+            type=NotificationType.SISTEMA,
+            title=f"🔔 Nueva publicación: {alert.label}",
+            content=f'Se publicó "{supply.title}" que coincide con tu alerta.',
+            link=f"/supplies/{supply.id}",
+        )
+        db.add(notif)
+
+    db.commit()
+
+
 @router.post("/", response_model=SupplyResponse, status_code=201)
 def create_supply(
     data: SupplyCreate,
@@ -40,6 +72,7 @@ def create_supply(
     supply = Supply(**data.model_dump(mode='json'), owner_id=current_user.id)
     db.add(supply)
     db.commit()
+    _fire_alerts(supply, db)
     return _load_supply(db, supply.id)
 
 
@@ -141,7 +174,10 @@ def get_my_favorites(
     )
     return db.query(Supply).options(
         joinedload(Supply.owner), joinedload(Supply.images)
-    ).filter(Supply.id.in_(fav_ids)).all()
+    ).filter(
+        Supply.id.in_(fav_ids),
+        Supply.owner_id != current_user.id
+    ).all()
 
 
 @router.get("/{supply_id}", response_model=SupplyResponse)
@@ -250,6 +286,9 @@ def toggle_favorite(
     supply = db.query(Supply).filter(Supply.id == supply_id).first()
     if not supply:
         raise HTTPException(status_code=404, detail="Insumo no encontrado")
+
+    if supply.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes guardar tu propia publicación en favoritos")
 
     existing = db.query(Favorite).filter(
         Favorite.user_id == current_user.id,

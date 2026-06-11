@@ -136,6 +136,20 @@ export const messagesAPI = {
   send: (data) => api.post('/messages/', data),
 };
 
+// === ALERTAS DE BÚSQUEDA ===
+export const alertsAPI = {
+  list: () => api.get('/alerts/'),
+  create: (data) => api.post('/alerts/', data),
+  toggle: (id) => api.put(`/alerts/${id}/toggle`),
+  delete: (id) => api.delete(`/alerts/${id}`),
+};
+
+// === INSIGNIAS ===
+export const badgesAPI = {
+  getMine: () => api.get('/users/me/badges'),
+  getForUser: (id) => api.get(`/users/${id}/badges`),
+};
+
 // === ESTADÍSTICAS PÚBLICAS ===
 export const statsAPI = {
   getPublic: () => api.get('/stats'),

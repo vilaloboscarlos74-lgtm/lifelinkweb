@@ -26,6 +26,7 @@ import TwoFactorSetup from './pages/TwoFactorSetup';
 import MeetingPoints from './pages/MeetingPoints';
 import UserPublicProfile from './pages/UserPublicProfile';
 import BloodRecord from './pages/BloodRecord';
+import MyAlerts from './pages/MyAlerts';
 
 export default function App() {
   return (
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="/my-supplies" element={<ProtectedRoute><MySupplies /></ProtectedRoute>} />
             <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
             <Route path="/mi-expediente" element={<ProtectedRoute><BloodRecord /></ProtectedRoute>} />
+            <Route path="/mis-alertas" element={<ProtectedRoute><MyAlerts /></ProtectedRoute>} />
 
             {/* Admin */}
             <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />

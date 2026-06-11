@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usersAPI, reviewsAPI, suppliesAPI, getMediaUrl } from '../services/api';
+import BadgeList from '../components/BadgeList';
 import { useAuth } from '../context/AuthContext';
 import {
   MapPin, Star, Shield, Droplets, Package,
@@ -114,23 +115,9 @@ export default function UserPublicProfile() {
             </div>
           </div>
 
-          {/* Badges */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {profile.is_verified && (
-              <span className="flex items-center gap-1 text-xs font-semibold text-success-700 bg-success-50 px-2.5 py-1 rounded-full border border-success-200">
-                <Shield size={11} /> Verificado
-              </span>
-            )}
-            {profile.is_blood_donor && profile.blood_type && (
-              <span className={`flex items-center gap-1 text-xs font-bold text-white px-2.5 py-1 rounded-full bg-gradient-to-r ${gradient}`}>
-                <Droplets size={11} /> Donante {profile.blood_type}
-              </span>
-            )}
-            {profile.rating_avg > 0 && (
-              <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
-                <Star size={11} fill="#f59e0b" className="text-amber-400" /> {profile.rating_avg.toFixed(1)}
-              </span>
-            )}
+          {/* Insignias */}
+          <div className="mb-4">
+            <BadgeList userId={profile.id} />
           </div>
 
           {/* Location */}

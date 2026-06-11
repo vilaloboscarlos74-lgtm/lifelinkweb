@@ -106,3 +106,21 @@ def get_user_public(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return user
+
+
+@router.get("/{user_id}/badges")
+def get_user_badges(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    from app.utils.badges import compute_badges
+    return compute_badges(user, db)
+
+
+@router.get("/me/badges")
+def get_my_badges(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.utils.badges import compute_badges
+    return compute_badges(current_user, db)

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { usersAPI, reviewsAPI, getMediaUrl } from '../services/api';
+import BadgeList from '../components/BadgeList';
 import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
@@ -228,6 +229,11 @@ export default function Profile() {
           <p className="font-bold text-gray-900 dark:text-gray-100">{user?.full_name}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400">@{user?.username}</p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{user?.email}</p>
+          {user?.id && (
+            <div className="mt-2">
+              <BadgeList userId={user.id} />
+            </div>
+          )}
         </div>
       </div>
 

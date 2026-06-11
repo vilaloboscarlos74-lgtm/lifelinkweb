@@ -185,10 +185,11 @@ export default function Navbar() {
                           </div>
 
                           {[
-                            { to: '/profile',     icon: User,          label: 'Mi Perfil' },
+                            { to: '/profile',      icon: User,          label: 'Mi Perfil' },
                             { to: '/my-supplies',  icon: Package,       label: 'Mis Publicaciones' },
                             { to: '/requests',     icon: MessageCircle, label: 'Solicitudes' },
                             { to: '/favorites',    icon: Heart,         label: 'Favoritos' },
+                            { to: '/mis-alertas',  icon: Bell,          label: 'Mis Alertas' },
                           ].map(({ to, icon: Icon, label }) => (
                             <Link
                               key={to}
@@ -225,7 +226,7 @@ export default function Navbar() {
                   {/* Mobile menu toggle */}
                   <button
                     onClick={() => setMenuOpen(!menuOpen)}
-                    className="md:hidden p-2 rounded-xl hover:bg-gray-50 transition-all"
+                    className="md:hidden p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
                   >
                     {menuOpen ? <X size={21} /> : <Menu size={21} />}
                   </button>
@@ -255,8 +256,8 @@ export default function Navbar() {
                   }
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-sm">{user.full_name}</p>
-                  <p className="text-xs text-gray-400">@{user.username}</p>
+                  <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">{user.full_name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">@{user.username}</p>
                 </div>
               </div>
 
@@ -297,7 +298,7 @@ export default function Navbar() {
                 <Link
                   to="/admin"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 hover:bg-primary-50 transition-all"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-primary-700 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"
                 >
                   <LayoutDashboard size={17} className="text-primary-500" /> Panel Admin
                 </Link>
@@ -306,7 +307,7 @@ export default function Navbar() {
               <div className="pt-1 border-t border-gray-100 mt-1">
                 <button
                   onClick={() => { logout(); navigate('/login'); setMenuOpen(false); }}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-accent-600 hover:bg-accent-50 w-full transition-all"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-accent-600 dark:text-accent-400 hover:bg-accent-50 dark:hover:bg-accent-900/20 w-full transition-all"
                 >
                   <LogOut size={17} /> Cerrar Sesión
                 </button>
