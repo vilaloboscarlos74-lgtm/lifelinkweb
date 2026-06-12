@@ -93,7 +93,7 @@ body {
     @apply badge bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300;
   }
   .badge-exchange {
-    @apply badge bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300;
+    @apply badge bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300;
   }
 
   /* ── Form label ── */
