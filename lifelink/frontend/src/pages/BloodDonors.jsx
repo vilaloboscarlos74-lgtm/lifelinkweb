@@ -93,32 +93,38 @@ function DonorCard({ donor, currentUser }) {
         </div>
 
         {/* Botones de acción */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <Link to={`/users/${donor.id}`}
-            className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 hover:text-primary-700 transition-all">
-            <User size={13} /> Ver perfil
-          </Link>
-          {!isOwn && currentUser && (
-            <Link
-              to={contactSupplyId ? `/supplies/${contactSupplyId}` : `/users/${donor.id}`}
-              className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white transition-all bg-gradient-to-r ${gradient} hover:opacity-90`}>
-              <MessageCircle size={13} />
-              {contactSupplyId ? 'Solicitar contacto' : 'Ver perfil'}
-            </Link>
-          )}
-          {!currentUser && (
-            <Link to="/login"
-              className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-all">
-              <MessageCircle size={13} /> Iniciar sesión
-            </Link>
-          )}
-          {isOwn && (
-            <Link to="/mi-expediente"
-              className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-100 transition-all">
-              <ClipboardList size={13} /> Mi expediente
-            </Link>
-          )}
-        </div>
+        {(() => {
+          const hasSecondAction = isOwn || !currentUser || contactSupplyId;
+          return (
+            <div className={`grid gap-2 pt-1 ${hasSecondAction ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <Link to={`/users/${donor.id}`}
+                className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:border-primary-300 hover:text-primary-700 transition-all">
+                <User size={13} /> Ver perfil
+              </Link>
+
+              {isOwn && (
+                <Link to="/mi-expediente"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs font-semibold text-red-700 dark:text-red-400 hover:bg-red-100 transition-all">
+                  <ClipboardList size={13} /> Mi expediente
+                </Link>
+              )}
+
+              {!isOwn && !currentUser && (
+                <Link to="/login"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-all">
+                  <MessageCircle size={13} /> Iniciar sesión
+                </Link>
+              )}
+
+              {!isOwn && currentUser && contactSupplyId && (
+                <Link to={`/supplies/${contactSupplyId}`}
+                  className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-white transition-all bg-gradient-to-r ${gradient} hover:opacity-90`}>
+                  <MessageCircle size={13} /> Solicitar contacto
+                </Link>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
