@@ -231,7 +231,8 @@ export default function BloodDonors() {
       const r = await suppliesAPI.list({ category: 'sangre', supply_type: 'solicitud', limit: 30 });
       const items = (r.data?.items || []).map(item => ({
         ...item,
-        _bloodType: item.title.match(/\b(O[+-]|A[+-]|B[+-]|AB[+-])\b/i)?.[0]?.toUpperCase() || '',
+        // AB must come before A/B; no trailing \b since +/- are non-word chars
+        _bloodType: item.title.match(/(AB[+-]|O[+-]|A[+-]|B[+-])/i)?.[0]?.toUpperCase() || '',
       }));
       setRequests(items);
     } catch (err) {

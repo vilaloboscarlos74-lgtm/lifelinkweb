@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+from sqlalchemy import text
 import logging
 import os
 
@@ -42,8 +43,9 @@ settings = get_settings()
 # STARTUP / SHUTDOWN
 # ==========================================
 def _run_migrations():
-    """Ejecuta migraciones DDL usando psycopg2 raw con AUTOCOMMIT.
-    ALTER TYPE en PostgreSQL no puede correr dentro de una transacción."""
+    """Ejecuta migraciones DDL en SQLAlchemy 2.x.
+    Cada sentencia corre en su propia transacción para que un fallo
+    no bloquee el resto. PostgreSQL 12+ permite ALTER TYPE en transacciones."""
     ddl_statements = [
         "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
@@ -56,20 +58,17 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ",
     ]
 
-    # Usar conexión raw de psycopg2 con AUTOCOMMIT (único modo seguro para ALTER TYPE)
-    raw_conn = engine.raw_connection()
+    # AUTOCOMMIT evita que ALTER TYPE quede dentro de una transacción implícita
     try:
-        raw_conn.set_isolation_level(0)  # ISOLATION_LEVEL_AUTOCOMMIT
-        cursor = raw_conn.cursor()
-        for sql in ddl_statements:
-            try:
-                cursor.execute(sql)
-                logger.info(f"Migración OK: {sql[:70]}")
-            except Exception as e:
-                logger.warning(f"Migración omitida: {e}")
-        cursor.close()
-    finally:
-        raw_conn.close()
+        with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+            for sql in ddl_statements:
+                try:
+                    conn.execute(text(sql))
+                    logger.info(f"Migración OK: {sql[:70]}")
+                except Exception as e:
+                    logger.warning(f"Migración omitida ({sql[:60]}): {e}")
+    except Exception as e:
+        logger.error(f"No se pudo abrir conexión para migraciones: {e}")
 
 
 @asynccontextmanager
@@ -225,3 +224,39 @@ def health_check():
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION
     }
+
+
+# ==========================================
+# MIGRATIONS MANUAL (admin fallback)
+# ==========================================
+@app.post("/api/admin/run-migrations")
+def run_migrations_manual(
+    db=None,
+    admin=None
+):
+    """Ejecuta las migraciones DDL manualmente. Solo para uso de administradores."""
+    from app.database import get_db as _get_db
+    from app.utils.dependencies import get_current_admin as _get_admin
+    results = []
+    ddl = [
+        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
+        "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
+        "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_max FLOAT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp VARCHAR(6)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_otp_expires TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp VARCHAR(6)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ",
+    ]
+    try:
+        with engine.execution_options(isolation_level="AUTOCOMMIT").connect() as conn:
+            for sql in ddl:
+                try:
+                    conn.execute(text(sql))
+                    results.append({"sql": sql[:60], "status": "ok"})
+                except Exception as e:
+                    results.append({"sql": sql[:60], "status": "skipped", "reason": str(e)})
+    except Exception as e:
+        return {"error": str(e), "results": results}
+    return {"results": results}
