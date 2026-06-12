@@ -13,7 +13,7 @@ import {
 import toast from 'react-hot-toast';
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const navigate = useNavigate();
 
   const [showPass, setShowPass] = useState(false);
@@ -48,14 +48,18 @@ export default function Register() {
 
     try {
       await register(form);
-
-      toast.success('¡Registro exitoso!');
-
-      navigate('/login');
+      // Auto-login con las mismas credenciales
+      const result = await login(form.username, form.password);
+      if (result?.requires_2fa) {
+        navigate('/login');
+      } else {
+        toast.success('¡Bienvenido a LifeLink!');
+        navigate('/');
+      }
     } catch (err) {
-      toast.error(
-        err.response?.data?.detail || 'Error al registrar usuario'
-      );
+      // Si el auto-login falla (ej. verificación de email requerida), ir al login
+      toast.success('Cuenta creada. Inicia sesión para continuar.');
+      navigate('/login');
     } finally {
       setLoading(false);
     }
