@@ -89,7 +89,7 @@ export default function UserPublicProfile() {
     <div className="max-w-3xl mx-auto">
 
       {/* Back */}
-      <Link to="/donors" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+      <Link to="/donors" className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-5 transition-colors">
         <ArrowLeft size={15} /> Volver a donantes
       </Link>
 
@@ -153,9 +153,9 @@ export default function UserPublicProfile() {
                 <Link
                   key={s.id}
                   to={`/supplies/${s.id}`}
-                  className="group rounded-xl border border-gray-100 overflow-hidden hover:border-primary-200 hover:shadow-md transition-all"
+                  className="group rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden hover:border-primary-200 dark:hover:border-primary-700 hover:shadow-md transition-all"
                 >
-                  <div className="aspect-[4/3] bg-gray-50 overflow-hidden">
+                  <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-700/40 overflow-hidden">
                     {img ? (
                       <img src={getMediaUrl(img.image_url)} alt={s.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
