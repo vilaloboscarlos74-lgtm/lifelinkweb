@@ -143,6 +143,43 @@ async def send_otp_email(to_email: str, username: str, otp: str) -> bool:
     return await send_email(to_email, f"Tu código LifeLink: {otp}", html)
 
 
+async def send_reset_password_email(to_email: str, username: str, token: str) -> None:
+    from app.config import get_settings
+    settings = get_settings()
+    link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+
+    html = f"""
+    <div style="{_BASE_STYLE}">
+      {_HEADER}
+      <div style="padding:32px 36px;background:#fff;">
+        <h2 style="color:#0c5d8a;margin:0 0 12px;">Restablecer contraseña</h2>
+        <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
+          Hola <strong>{username}</strong>, recibimos una solicitud para restablecer la contraseña de tu cuenta.
+          Haz clic en el botón para crear una nueva:
+        </p>
+        <div style="text-align:center;margin:28px 0;">
+          <a href="{link}"
+             style="background:linear-gradient(135deg,#0770a8,#14b8a6);
+                    color:#fff;padding:14px 36px;border-radius:12px;
+                    text-decoration:none;font-weight:700;font-size:15px;
+                    display:inline-block;">
+            Crear nueva contraseña
+          </a>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.6;margin:0;">
+          Este enlace expira en <strong>1 hora</strong>.
+          Si no solicitaste este cambio, ignora este mensaje — tu contraseña no cambiará.<br>
+          <a href="{link}" style="color:#0770a8;word-break:break-all;">{link}</a>
+        </p>
+      </div>
+      <div style="padding:16px;text-align:center;background:#f1f5f9;">
+        <p style="color:#94a3b8;font-size:11px;margin:0;">© 2026 LifeLink Medical · México</p>
+      </div>
+    </div>
+    """
+    await send_email(to_email, "Restablece tu contraseña — LifeLink Medical", html)
+
+
 async def send_2fa_enabled_email(to_email: str, username: str) -> None:
     html = f"""
     <div style="{_BASE_STYLE}">

@@ -27,6 +27,8 @@ import MeetingPoints from './pages/MeetingPoints';
 import UserPublicProfile from './pages/UserPublicProfile';
 import BloodRecord from './pages/BloodRecord';
 import MyAlerts from './pages/MyAlerts';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 export default function App() {
   return (
@@ -57,6 +59,8 @@ export default function App() {
             <Route path="/users/:id" element={<UserPublicProfile />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/2fa-verify" element={<TwoFactorVerify />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/puntos-encuentro" element={<MeetingPoints />} />
 
             {/* Protegidas */}

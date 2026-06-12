@@ -1,3 +1,4 @@
+import logging
 import secrets
 import base64
 import io
@@ -7,18 +8,22 @@ import pyotp
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 from app.utils.security import (
+    create_reset_token, decode_reset_token,
     hash_password, verify_password,
     create_access_token, create_temp_token, decode_token,
 )
-from app.utils.email import send_verification_email, send_2fa_enabled_email, send_otp_email
+from app.utils.email import send_verification_email, send_2fa_enabled_email, send_otp_email, send_reset_password_email
 from app.utils.sms import generate_otp, get_otp_expiry, send_sms_otp
 from app.config import get_settings
 
@@ -578,3 +583,49 @@ async def sms_2fa_verify(request: Request, payload: dict, db: Session = Depends(
         "role": user.role.value,
     })
     return {"access_token": access_token, "token_type": "bearer", "user": _make_user_payload(user)}
+
+
+# ── FORGOT PASSWORD ───────────────────────────────────────────────────────────
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(..., min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if not any(c.isupper() for c in v):
+            raise ValueError('La contraseña debe tener al menos una mayúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe tener al menos un número')
+        return v
+
+
+@router.post("/forgot-password", status_code=202)
+@_limit("3/minute")
+async def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    email = body.email.lower().strip()
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    if user:
+        token = create_reset_token(user.id)
+        try:
+            await send_reset_password_email(user.email, user.full_name, token)
+        except Exception as e:
+            logger.error(f"Error enviando email de reset a {email}: {e}")
+    return {"detail": "Si el correo existe recibirás un enlace en los próximos minutos."}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user_id = decode_reset_token(body.token)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="El enlace es inválido o ha expirado")
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="El enlace es inválido o ha expirado")
+    user.hashed_password = hash_password(body.password)
+    db.commit()
+    return {"detail": "Contraseña actualizada correctamente. Ya puedes iniciar sesión."}

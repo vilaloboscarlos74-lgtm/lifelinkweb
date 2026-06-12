@@ -66,6 +66,10 @@ export const authAPI = {
   disableEmail2FA: (password) => api.post('/auth/2fa/email/disable', { password }),
   sendEmail2FA: (tempToken) => api.post('/auth/2fa/email/send', { temp_token: tempToken }),
   verifyEmail2FA: (tempToken, code) => api.post('/auth/2fa/email/verify', { temp_token: tempToken, code }),
+
+  // Recuperación de contraseña
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
 };
 
 // === USERS ===
