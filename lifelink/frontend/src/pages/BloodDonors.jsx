@@ -261,15 +261,20 @@ export default function BloodDonors() {
       setReqForm({ bloodType: '', city: '', description: '', is_urgent: false });
       fetchRequests();
     } catch (err) {
-      const detail = err.response?.data?.detail;
+      const data = err.response?.data;
+      const detail = data?.detail;
       if (typeof detail === 'string') {
         toast.error(detail);
       } else if (Array.isArray(detail)) {
-        toast.error(detail.map(d => d.msg).join('. '));
+        toast.error(detail.map(d => d.msg || d).join('. '));
+      } else if (err.response?.status === 422) {
+        toast.error('Error de validación. Revisa que el tipo de sangre esté seleccionado.');
+      } else if (err.response?.status === 500) {
+        toast.error('Error del servidor. La función de solicitudes puede estar temporalmente fuera de servicio.');
       } else {
-        toast.error('Error al publicar. Verifica que todos los campos sean correctos.');
+        toast.error(`Error ${err.response?.status || ''}: ${JSON.stringify(data)?.slice(0, 100) || 'desconocido'}`);
       }
-      console.error('Error publicando solicitud de sangre:', err.response?.data);
+      console.error('Error publicando solicitud de sangre:', err.response?.status, data);
     } finally { setSubmitting(false); }
   };
 

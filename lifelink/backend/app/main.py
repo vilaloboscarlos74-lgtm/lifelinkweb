@@ -42,11 +42,8 @@ settings = get_settings()
 # STARTUP / SHUTDOWN
 # ==========================================
 def _run_migrations():
-    """Ejecuta migraciones incrementales que create_all no cubre.
-    Usa AUTOCOMMIT porque ALTER TYPE no puede ejecutarse dentro de una transacción."""
-    from sqlalchemy import text
-
-    # DDL statements que requieren AUTOCOMMIT (ALTER TYPE, ALTER TABLE ADD COLUMN)
+    """Ejecuta migraciones DDL usando psycopg2 raw con AUTOCOMMIT.
+    ALTER TYPE en PostgreSQL no puede correr dentro de una transacción."""
     ddl_statements = [
         "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
@@ -59,14 +56,20 @@ def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_otp_expires TIMESTAMPTZ",
     ]
 
-    # AUTOCOMMIT es necesario para ALTER TYPE en PostgreSQL
-    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+    # Usar conexión raw de psycopg2 con AUTOCOMMIT (único modo seguro para ALTER TYPE)
+    raw_conn = engine.raw_connection()
+    try:
+        raw_conn.set_isolation_level(0)  # ISOLATION_LEVEL_AUTOCOMMIT
+        cursor = raw_conn.cursor()
         for sql in ddl_statements:
             try:
-                conn.execute(text(sql))
-                logger.info(f"Migración OK: {sql[:60]}")
+                cursor.execute(sql)
+                logger.info(f"Migración OK: {sql[:70]}")
             except Exception as e:
-                logger.warning(f"Migración omitida ({sql[:50]}...): {e}")
+                logger.warning(f"Migración omitida: {e}")
+        cursor.close()
+    finally:
+        raw_conn.close()
 
 
 @asynccontextmanager
