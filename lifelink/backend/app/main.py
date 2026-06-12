@@ -1,4 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.user import User
+from app.utils.dependencies import get_current_admin
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -231,10 +235,10 @@ def health_check():
 # ==========================================
 @app.post("/api/admin/run-migrations")
 def run_migrations_manual(
-    db=None,
-    admin=None
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
 ):
-    """Ejecuta las migraciones DDL manualmente. Solo para uso de administradores."""
+    """Ejecuta las migraciones DDL manualmente. Solo para administradores autenticados."""
     from app.database import get_db as _get_db
     from app.utils.dependencies import get_current_admin as _get_admin
     results = []

@@ -40,8 +40,14 @@ export default function Register() {
       return toast.error('Completa todos los campos obligatorios');
     }
 
-    if (form.password.length < 6) {
-      return toast.error('La contraseña debe tener al menos 6 caracteres');
+    if (form.password.length < 8) {
+      return toast.error('La contraseña debe tener al menos 8 caracteres');
+    }
+    if (!/[A-Z]/.test(form.password)) {
+      return toast.error('La contraseña debe tener al menos una mayúscula');
+    }
+    if (!/\d/.test(form.password)) {
+      return toast.error('La contraseña debe tener al menos un número');
     }
 
     setLoading(true);

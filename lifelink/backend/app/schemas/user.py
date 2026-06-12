@@ -13,7 +13,16 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
+
+    @field_validator('password')
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if not any(c.isupper() for c in v):
+            raise ValueError('La contraseña debe tener al menos una mayúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe tener al menos un número')
+        return v
 
 
 class UserLogin(BaseModel):
