@@ -47,7 +47,7 @@ def _run_migrations():
     Cada sentencia corre en su propia transacción para que un fallo
     no bloquee el resto. PostgreSQL 12+ permite ALTER TYPE en transacciones."""
     ddl_statements = [
-        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
+        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'SOLICITUD'",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_max FLOAT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
@@ -239,7 +239,7 @@ def run_migrations_manual(
     from app.utils.dependencies import get_current_admin as _get_admin
     results = []
     ddl = [
-        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'solicitud'",
+        "ALTER TYPE supplytype ADD VALUE IF NOT EXISTS 'SOLICITUD'",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_min FLOAT",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS budget_max FLOAT",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_2fa_enabled BOOLEAN NOT NULL DEFAULT FALSE",
