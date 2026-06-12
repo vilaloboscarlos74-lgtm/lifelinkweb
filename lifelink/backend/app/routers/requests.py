@@ -146,17 +146,26 @@ def respond_request(
     req.response_message = data.response_message
     req.responded_at = datetime.now(timezone.utc)
 
-    # Si se acepta, marcar insumo como reservado solo si se agotaron las unidades
-    if data.status == RequestStatus.ACEPTADA and req.supply_id:
+    if req.supply_id:
         supply = db.query(Supply).filter(Supply.id == req.supply_id).first()
-        if supply and supply.status == SupplyStatus.DISPONIBLE:
-            already_accepted = db.query(ContactRequest).filter(
-                ContactRequest.supply_id == req.supply_id,
-                ContactRequest.status == RequestStatus.ACEPTADA,
-                ContactRequest.id != req.id,
-            ).count()
-            if already_accepted + 1 >= supply.quantity:
-                supply.status = SupplyStatus.RESERVADO
+        if supply:
+            if data.status == RequestStatus.ACEPTADA and supply.status == SupplyStatus.DISPONIBLE:
+                already_accepted = db.query(ContactRequest).filter(
+                    ContactRequest.supply_id == req.supply_id,
+                    ContactRequest.status == RequestStatus.ACEPTADA,
+                    ContactRequest.id != req.id,
+                ).count()
+                if already_accepted + 1 >= supply.quantity:
+                    supply.status = SupplyStatus.RESERVADO
+            elif data.status == RequestStatus.RECHAZADA and supply.status == SupplyStatus.RESERVADO:
+                # Revertir si ya no hay aceptaciones activas
+                still_accepted = db.query(ContactRequest).filter(
+                    ContactRequest.supply_id == req.supply_id,
+                    ContactRequest.status == RequestStatus.ACEPTADA,
+                    ContactRequest.id != req.id,
+                ).count()
+                if still_accepted == 0:
+                    supply.status = SupplyStatus.DISPONIBLE
 
     # Notificación al solicitante
     accepted = data.status == RequestStatus.ACEPTADA
@@ -172,7 +181,8 @@ def respond_request(
 
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.id == req.id).first()
 
 
@@ -219,7 +229,8 @@ def complete_request(
 
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.id == req.id).first()
 
 
@@ -239,10 +250,23 @@ def cancel_request(
         raise HTTPException(status_code=404, detail="Solicitud no encontrada o no cancelable")
 
     req.status = RequestStatus.CANCELADA
+
+    # Si el insumo quedó RESERVADO solo por esta solicitud, revertir a DISPONIBLE
+    if req.supply_id:
+        supply = db.query(Supply).filter(Supply.id == req.supply_id).first()
+        if supply and supply.status == SupplyStatus.RESERVADO:
+            still_accepted = db.query(ContactRequest).filter(
+                ContactRequest.supply_id == req.supply_id,
+                ContactRequest.status == RequestStatus.ACEPTADA,
+                ContactRequest.id != req.id,
+            ).count()
+            if still_accepted == 0:
+                supply.status = SupplyStatus.DISPONIBLE
+
     db.commit()
-    db.refresh(req)
 
     return db.query(ContactRequest).options(
         joinedload(ContactRequest.sender),
-        joinedload(ContactRequest.receiver)
+        joinedload(ContactRequest.receiver),
+        joinedload(ContactRequest.supply),
     ).filter(ContactRequest.id == req.id).first()

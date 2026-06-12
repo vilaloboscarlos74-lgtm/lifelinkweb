@@ -1,5 +1,10 @@
+import logging
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
+_INSECURE_KEY = "cambiar_esta_clave_en_produccion"
 
 
 class Settings(BaseSettings):
@@ -7,15 +12,15 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/lifelink_db"
 
     # JWT
-    SECRET_KEY: str = "cambiar_esta_clave_en_produccion"
+    SECRET_KEY: str = _INSECURE_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    TEMP_TOKEN_EXPIRE_MINUTES: int = 5  # Para flujo 2FA
+    TEMP_TOKEN_EXPIRE_MINUTES: int = 5
 
     # App
     APP_NAME: str = "LifeLink Medical"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     FRONTEND_URL: str = "http://localhost:5173"
 
@@ -49,4 +54,10 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    if s.SECRET_KEY == _INSECURE_KEY:
+        logger.warning(
+            "⚠️  SECRET_KEY no configurada — usando clave insegura. "
+            "Define SECRET_KEY en las variables de entorno antes de ir a producción."
+        )
+    return s
