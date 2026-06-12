@@ -2,14 +2,15 @@ import math
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from sqlalchemy import func, case, extract
-from typing import List
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, case, extract, or_
+from typing import List, Optional
 from app.database import get_db
-from app.models.user import User
-from app.models.supply import Supply, SupplyStatus, SupplyType
+from app.models.user import User, UserRole
+from app.models.supply import Supply, SupplyStatus, SupplyType, SupplyCategory
 from app.models.request import ContactRequest, RequestStatus
 from app.schemas.user import UserResponse
+from app.schemas.supply import SupplyResponse
 from app.utils.dependencies import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["Administración"])
@@ -105,11 +106,19 @@ def get_dashboard(
 def list_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    total = db.query(func.count(User.id)).scalar()
-    users = db.query(User).offset((page - 1) * limit).limit(limit).all()
+    filters = []
+    if search:
+        filters.append(or_(
+            User.full_name.ilike(f"%{search}%"),
+            User.username.ilike(f"%{search}%"),
+            User.email.ilike(f"%{search}%"),
+        ))
+    total = db.query(func.count(User.id)).filter(*filters).scalar() or 0
+    users = db.query(User).filter(*filters).order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return UserPage(
         items=users,
         total=total,
@@ -145,3 +154,89 @@ def admin_delete_supply(
         raise HTTPException(status_code=404, detail="Insumo no encontrado")
     db.delete(supply)
     db.commit()
+
+
+class SupplyPage(BaseModel):
+    items: List[SupplyResponse]
+    total: int
+    page: int
+    pages: int
+
+
+@router.get("/supplies", response_model=SupplyPage)
+def list_all_supplies(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    query: Optional[str] = None,
+    supply_type: Optional[SupplyType] = None,
+    status: Optional[SupplyStatus] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    filters = []
+    if query:
+        filters.append(or_(
+            Supply.title.ilike(f"%{query}%"),
+            Supply.description.ilike(f"%{query}%"),
+        ))
+    if supply_type:
+        filters.append(Supply.supply_type == supply_type)
+    if status:
+        filters.append(Supply.status == status)
+
+    total = db.query(func.count(Supply.id)).filter(*filters).scalar() or 0
+    items = (
+        db.query(Supply)
+        .options(joinedload(Supply.owner), joinedload(Supply.images))
+        .filter(*filters)
+        .order_by(Supply.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    return SupplyPage(
+        items=items,
+        total=total,
+        page=page,
+        pages=math.ceil(total / limit) if total > 0 else 1,
+    )
+
+
+@router.put("/supplies/{supply_id}/status")
+def set_supply_status(
+    supply_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    supply = db.query(Supply).filter(Supply.id == supply_id).first()
+    if not supply:
+        raise HTTPException(status_code=404, detail="Insumo no encontrado")
+    new_status = payload.get("status")
+    try:
+        supply.status = SupplyStatus(new_status)
+    except (ValueError, KeyError):
+        raise HTTPException(status_code=400, detail="Estado inválido")
+    db.commit()
+    return {"status": supply.status.value, "detail": f"Estado actualizado a {supply.status.value}"}
+
+
+@router.put("/users/{user_id}/role")
+def change_user_role(
+    user_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="No puedes cambiar tu propio rol")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    new_role = payload.get("role")
+    try:
+        user.role = UserRole(new_role)
+    except (ValueError, KeyError):
+        raise HTTPException(status_code=400, detail="Rol inválido")
+    db.commit()
+    return {"role": user.role.value, "detail": f"Rol actualizado a {user.role.value}"}
