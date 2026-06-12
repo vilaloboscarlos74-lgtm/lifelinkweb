@@ -11,6 +11,7 @@ from app.models.supply import Supply, SupplyStatus, SupplyType, SupplyCategory
 from app.models.request import ContactRequest, RequestStatus
 from app.schemas.user import UserResponse
 from app.schemas.supply import SupplyResponse
+from app.schemas.request import RequestResponse
 from app.utils.dependencies import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["Administración"])
@@ -107,6 +108,7 @@ def list_users(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
+    role: Optional[UserRole] = None,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
@@ -117,6 +119,8 @@ def list_users(
             User.username.ilike(f"%{search}%"),
             User.email.ilike(f"%{search}%"),
         ))
+    if role:
+        filters.append(User.role == role)
     total = db.query(func.count(User.id)).filter(*filters).scalar() or 0
     users = db.query(User).filter(*filters).order_by(User.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return UserPage(
@@ -221,6 +225,20 @@ def set_supply_status(
     return {"status": supply.status.value, "detail": f"Estado actualizado a {supply.status.value}"}
 
 
+@router.put("/users/{user_id}/verify")
+def toggle_user_verified(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    user.is_verified = not user.is_verified
+    db.commit()
+    return {"is_verified": user.is_verified, "detail": f"Usuario {'verificado' if user.is_verified else 'desverificado'}"}
+
+
 @router.put("/users/{user_id}/role")
 def change_user_role(
     user_id: int,
@@ -240,3 +258,44 @@ def change_user_role(
         raise HTTPException(status_code=400, detail="Rol inválido")
     db.commit()
     return {"role": user.role.value, "detail": f"Rol actualizado a {user.role.value}"}
+
+
+class RequestPage(BaseModel):
+    items: List[RequestResponse]
+    total: int
+    page: int
+    pages: int
+
+
+@router.get("/requests", response_model=RequestPage)
+def list_all_requests(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status: Optional[RequestStatus] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    filters = []
+    if status:
+        filters.append(ContactRequest.status == status)
+
+    total = db.query(func.count(ContactRequest.id)).filter(*filters).scalar() or 0
+    items = (
+        db.query(ContactRequest)
+        .options(
+            joinedload(ContactRequest.sender),
+            joinedload(ContactRequest.receiver),
+            joinedload(ContactRequest.supply),
+        )
+        .filter(*filters)
+        .order_by(ContactRequest.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    return RequestPage(
+        items=items,
+        total=total,
+        page=page,
+        pages=math.ceil(total / limit) if total > 0 else 1,
+    )

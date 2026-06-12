@@ -4,7 +4,8 @@ import { adminAPI, getMediaUrl } from '../services/api';
 import {
   Users, Package, MessageCircle, Droplets, ToggleLeft, ToggleRight,
   Shield, BarChart2, Trash2, Search, ChevronLeft, ChevronRight,
-  Ban, CheckCircle, RefreshCw, Eye, AlertTriangle, Crown,
+  Ban, RefreshCw, Eye, AlertTriangle, BadgeCheck,
+  ClipboardList, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -49,7 +50,7 @@ function HBarChart({ data }) {
   );
 }
 
-// ── Badge de estado ──────────────────────────────────────────────────────────
+// ── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_STYLES = {
   disponible: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   reservado:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -66,6 +67,13 @@ const ROLE_STYLES = {
   admin:       'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   donante:     'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   solicitante: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+};
+const REQ_STATUS_STYLES = {
+  pendiente:  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  aceptada:   'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  rechazada:  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  cancelada:  'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  completada: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
 function Badge({ label, style }) {
@@ -116,18 +124,63 @@ function ConfirmModal({ message, onConfirm, onCancel, danger = true }) {
   );
 }
 
+// ── Skeleton de estadísticas ─────────────────────────────────────────────────
+function StatsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="card p-5 space-y-3 animate-pulse">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700" />
+            <div className="h-7 w-14 bg-gray-100 dark:bg-gray-700 rounded" />
+            <div className="h-4 w-28 bg-gray-100 dark:bg-gray-700 rounded" />
+            <div className="h-3 w-20 bg-gray-100 dark:bg-gray-700 rounded" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[1,2].map(i => (
+          <div key={i} className="card p-5 animate-pulse">
+            <div className="h-5 w-40 bg-gray-100 dark:bg-gray-700 rounded mb-4" />
+            <div className="h-32 bg-gray-100 dark:bg-gray-700 rounded" />
+          </div>
+        ))}
+        <div className="card p-5 lg:col-span-2 animate-pulse">
+          <div className="h-5 w-52 bg-gray-100 dark:bg-gray-700 rounded mb-4" />
+          <div className="space-y-2">
+            {[1,2,3,4].map(i => <div key={i} className="h-4 bg-gray-100 dark:bg-gray-700 rounded" />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab Estadísticas ─────────────────────────────────────────────────────────
-function StatsTab({ stats }) {
-  if (!stats) return <p className="text-center text-gray-400 py-10">Sin datos</p>;
+function StatsTab({ stats, error, onRefresh }) {
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4">
+      <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+        <AlertCircle size={26} className="text-red-600" />
+      </div>
+      <p className="text-gray-600 dark:text-gray-400 text-sm">No se pudieron cargar las estadísticas</p>
+      <button onClick={onRefresh} className="btn-primary flex items-center gap-2">
+        <RefreshCw size={14} /> Reintentar
+      </button>
+    </div>
+  );
+
+  if (!stats) return null;
+
   const charts = stats.charts || {};
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { icon: Users,         label: 'Usuarios totales',  value: stats.users?.total,        sub: `${stats.users?.active ?? 0} activos`,           color: 'text-primary-600 bg-primary-100 dark:bg-primary-900/30' },
-          { icon: Package,       label: 'Insumos publicados', value: stats.supplies?.total,     sub: `${stats.supplies?.available ?? 0} disponibles`, color: 'text-medical-600 bg-medical-100 dark:bg-medical-900/30' },
-          { icon: MessageCircle, label: 'Solicitudes',        value: stats.requests?.total,     sub: `${stats.requests?.pending ?? 0} pendientes`,    color: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30' },
-          { icon: Droplets,      label: 'Donantes de sangre', value: stats.users?.blood_donors, sub: `${stats.requests?.completed ?? 0} completadas`, color: 'text-accent-600 bg-accent-100 dark:bg-accent-900/30' },
+          { icon: Users,         label: 'Usuarios totales',   value: stats.users?.total,        sub: `${stats.users?.active ?? 0} activos`,            color: 'text-primary-600 bg-primary-100 dark:bg-primary-900/30' },
+          { icon: Package,       label: 'Insumos publicados', value: stats.supplies?.total,     sub: `${stats.supplies?.available ?? 0} disponibles`,  color: 'text-medical-600 bg-medical-100 dark:bg-medical-900/30' },
+          { icon: MessageCircle, label: 'Solicitudes',        value: stats.requests?.total,     sub: `${stats.requests?.pending ?? 0} pendientes`,     color: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30' },
+          { icon: Droplets,      label: 'Donantes de sangre', value: stats.users?.blood_donors, sub: `${stats.requests?.completed ?? 0} completadas`,  color: 'text-accent-600 bg-accent-100 dark:bg-accent-900/30' },
         ].map(({ icon: Icon, label, value, sub, color }) => (
           <div key={label} className="card p-5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
@@ -139,6 +192,14 @@ function StatsTab({ stats }) {
           </div>
         ))}
       </div>
+
+      <div className="flex justify-end">
+        <button onClick={onRefresh}
+          className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+          <RefreshCw size={13} /> Actualizar datos
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -182,7 +243,7 @@ function SuppliesTab() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [confirm, setConfirm] = useState(null); // { type: 'delete'|'status', id, extra }
+  const [confirm, setConfirm] = useState(null);
 
   const fetch = useCallback(async (p = 1) => {
     setLoading(true);
@@ -223,7 +284,6 @@ function SuppliesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Filtros */}
       <div className="card p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -246,8 +306,7 @@ function SuppliesTab() {
           <option value="entregado">Entregado</option>
           <option value="cancelado">Cancelado</option>
         </select>
-        <button onClick={() => fetch(1)}
-          className="btn-primary flex items-center gap-2 shrink-0">
+        <button onClick={() => fetch(1)} className="btn-primary flex items-center gap-2 shrink-0">
           <Search size={14} /> Buscar
         </button>
       </div>
@@ -256,7 +315,6 @@ function SuppliesTab() {
         <strong className="text-gray-800 dark:text-gray-200">{total}</strong> publicaciones en total
       </p>
 
-      {/* Tabla */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -338,7 +396,6 @@ function SuppliesTab() {
 
       <Pagination page={page} pages={pages} onChange={p => { setPage(p); fetch(p); }} />
 
-      {/* Modal confirmación */}
       {confirm && (
         <ConfirmModal
           danger={confirm.type === 'delete'}
@@ -369,13 +426,16 @@ function UsersTab() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [confirm, setConfirm] = useState(null);
+  const [filterRole, setFilterRole] = useState('');
+  const [confirm, setConfirm] = useState(null);       // { type: 'toggle', id, name, active }
+  const [confirmRole, setConfirmRole] = useState(null); // { id, name, role }
 
   const fetch = useCallback(async (p = 1) => {
     setLoading(true);
     try {
       const params = { page: p, limit: 20 };
       if (search.trim()) params.search = search.trim();
+      if (filterRole) params.role = filterRole;
       const r = await adminAPI.getUsers(params);
       setUsers(r.data.items || []);
       setTotal(r.data.total || 0);
@@ -383,9 +443,9 @@ function UsersTab() {
       setPages(r.data.pages || 1);
     } catch { toast.error('Error al cargar usuarios'); }
     finally { setLoading(false); }
-  }, [search]);
+  }, [search, filterRole]);
 
-  useEffect(() => { fetch(1); }, []);  // eslint-disable-line
+  useEffect(() => { fetch(1); }, [fetch]);
 
   const toggleActive = async (id) => {
     try {
@@ -396,18 +456,27 @@ function UsersTab() {
     setConfirm(null);
   };
 
-  const changeRole = async (id, role) => {
+  const toggleVerified = async (id) => {
     try {
-      const res = await adminAPI.changeUserRole(id, role);
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, role: res.data.role } : u));
+      const res = await adminAPI.toggleUserVerified(id);
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_verified: res.data.is_verified } : u));
+      toast.success(res.data.detail);
+    } catch { toast.error('Error al actualizar verificación'); }
+  };
+
+  const applyRoleChange = async () => {
+    if (!confirmRole) return;
+    try {
+      const res = await adminAPI.changeUserRole(confirmRole.id, confirmRole.role);
+      setUsers(prev => prev.map(u => u.id === confirmRole.id ? { ...u, role: res.data.role } : u));
       toast.success(res.data.detail);
     } catch (err) { toast.error(err.response?.data?.detail || 'Error'); }
+    setConfirmRole(null);
   };
 
   return (
     <div className="space-y-4">
-      {/* Búsqueda */}
-      <div className="card p-4 flex gap-3">
+      <div className="card p-4 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -415,6 +484,12 @@ function UsersTab() {
             placeholder="Buscar usuario..."
             className="input-field pl-9 text-sm" />
         </div>
+        <select value={filterRole} onChange={e => setFilterRole(e.target.value)} className="input-field text-sm sm:w-44">
+          <option value="">Todos los roles</option>
+          <option value="admin">Admin</option>
+          <option value="donante">Donante</option>
+          <option value="solicitante">Solicitante</option>
+        </select>
         <button onClick={() => fetch(1)} className="btn-primary flex items-center gap-2 shrink-0">
           <Search size={14} /> Buscar
         </button>
@@ -457,23 +532,26 @@ function UsersTab() {
                             }
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-gray-100">{u.full_name}</p>
+                            <div className="flex items-center gap-1">
+                              <p className="font-medium text-gray-900 dark:text-gray-100">{u.full_name}</p>
+                              {u.is_verified && <BadgeCheck size={13} className="text-primary-500 shrink-0" />}
+                            </div>
                             <p className="text-[11px] text-gray-400">@{u.username}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell text-xs text-gray-600 dark:text-gray-400">{u.email}</td>
                       <td className="px-4 py-3">
-                        {u.role !== 'admin' ? (
+                        {u.role === 'admin' ? (
+                          <Badge label="admin" style={ROLE_STYLES.admin} />
+                        ) : (
                           <select value={u.role}
-                            onChange={e => changeRole(u.id, e.target.value)}
+                            onChange={e => setConfirmRole({ id: u.id, name: u.full_name, role: e.target.value })}
                             className="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer">
                             <option value="solicitante">Solicitante</option>
                             <option value="donante">Donante</option>
                             <option value="admin">Admin</option>
                           </select>
-                        ) : (
-                          <Badge label="admin" style={ROLE_STYLES.admin} />
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -493,6 +571,14 @@ function UsersTab() {
                             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-primary-600 transition-colors" title="Ver perfil">
                             <Eye size={15} />
                           </Link>
+                          <button
+                            onClick={() => toggleVerified(u.id)}
+                            className={`p-2 rounded-lg transition-colors ${u.is_verified
+                              ? 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-primary-500 hover:text-primary-700'
+                              : 'hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 hover:text-primary-500'}`}
+                            title={u.is_verified ? 'Quitar verificación' : 'Verificar usuario'}>
+                            <BadgeCheck size={15} />
+                          </button>
                           {u.role !== 'admin' && (
                             <button
                               onClick={() => setConfirm({ id: u.id, name: u.full_name, active: u.is_active })}
@@ -528,6 +614,124 @@ function UsersTab() {
           onCancel={() => setConfirm(null)}
         />
       )}
+
+      {confirmRole && (
+        <ConfirmModal
+          danger={confirmRole.role === 'admin'}
+          message={confirmRole.role === 'admin'
+            ? `¿Otorgar rol de ADMINISTRADOR a "${confirmRole.name}"? Tendrá acceso completo al panel de administración.`
+            : `¿Cambiar el rol de "${confirmRole.name}" a "${confirmRole.role}"?`}
+          onConfirm={applyRoleChange}
+          onCancel={() => setConfirmRole(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Tab Solicitudes ──────────────────────────────────────────────────────────
+function RequestsTab() {
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('');
+
+  const fetch = useCallback(async (p = 1) => {
+    setLoading(true);
+    try {
+      const params = { page: p, limit: 20 };
+      if (filterStatus) params.status = filterStatus;
+      const r = await adminAPI.getRequests(params);
+      setItems(r.data.items || []);
+      setTotal(r.data.total || 0);
+      setPage(r.data.page || 1);
+      setPages(r.data.pages || 1);
+    } catch { toast.error('Error al cargar solicitudes'); }
+    finally { setLoading(false); }
+  }, [filterStatus]);
+
+  useEffect(() => { fetch(1); }, [fetch]);
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-4 flex flex-col sm:flex-row gap-3 items-center">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input-field text-sm sm:w-48">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="aceptada">Aceptada</option>
+          <option value="rechazada">Rechazada</option>
+          <option value="cancelada">Cancelada</option>
+          <option value="completada">Completada</option>
+        </select>
+        <p className="text-sm text-gray-500 dark:text-gray-400 ml-auto">
+          <strong className="text-gray-800 dark:text-gray-200">{total}</strong> solicitudes en total
+        </p>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/60">
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Solicitante</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 hidden md:table-cell">Receptor</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 hidden lg:table-cell">Insumo</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Estado</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 hidden sm:table-cell">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-gray-50 dark:border-gray-700/50">
+                      {[1,2,3,4,5].map(j => (
+                        <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /></td>
+                      ))}
+                    </tr>
+                  ))
+                : items.map(r => (
+                    <tr key={r.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-3">
+                        <Link to={`/users/${r.sender?.id}`} className="font-medium text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400">
+                          {r.sender?.full_name}
+                        </Link>
+                        <p className="text-[11px] text-gray-400">@{r.sender?.username}</p>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <Link to={`/users/${r.receiver?.id}`} className="text-xs text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400">
+                          {r.receiver?.full_name}
+                        </Link>
+                        <p className="text-[11px] text-gray-400">@{r.receiver?.username}</p>
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {r.supply ? (
+                          <Link to={`/supplies/${r.supply.id}`} className="text-xs text-primary-600 dark:text-primary-400 hover:underline truncate max-w-[160px] block">
+                            {r.supply.title}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-gray-400">Sin insumo</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge label={r.status} style={REQ_STATUS_STYLES[r.status] || ''} />
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell text-xs text-gray-400">
+                        {r.created_at ? new Date(r.created_at).toLocaleDateString('es-MX') : '—'}
+                      </td>
+                    </tr>
+                  ))
+              }
+            </tbody>
+          </table>
+          {!loading && items.length === 0 && (
+            <p className="text-center text-sm text-gray-400 dark:text-gray-500 py-10">No se encontraron solicitudes</p>
+          )}
+        </div>
+      </div>
+
+      <Pagination page={page} pages={pages} onChange={p => { setPage(p); fetch(p); }} />
     </div>
   );
 }
@@ -535,25 +739,30 @@ function UsersTab() {
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
   const [tab, setTab] = useState('stats');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadStats = useCallback(() => {
+    setLoading(true);
+    setStatsError(false);
     adminAPI.getDashboard()
       .then(r => setStats(r.data))
-      .catch(() => {})
+      .catch(() => setStatsError(true))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { loadStats(); }, [loadStats]);
+
   const TABS = [
-    { key: 'stats',     label: 'Estadísticas',  icon: BarChart2 },
-    { key: 'supplies',  label: 'Publicaciones',  icon: Package },
-    { key: 'users',     label: 'Usuarios',       icon: Users },
+    { key: 'stats',    label: 'Estadísticas',  icon: BarChart2 },
+    { key: 'supplies', label: 'Publicaciones',  icon: Package },
+    { key: 'users',    label: 'Usuarios',       icon: Users },
+    { key: 'requests', label: 'Solicitudes',    icon: ClipboardList },
   ];
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-md">
           <Shield size={22} className="text-white" />
@@ -564,7 +773,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
@@ -578,14 +786,12 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Contenido */}
-      {loading && tab === 'stats'
-        ? <div className="flex justify-center py-20">
-            <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
-          </div>
-        : tab === 'stats'   ? <StatsTab stats={stats} />
+      {tab === 'stats' && loading
+        ? <StatsSkeleton />
+        : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={loadStats} />
         : tab === 'supplies' ? <SuppliesTab />
-        : <UsersTab />
+        : tab === 'users'    ? <UsersTab />
+        : <RequestsTab />
       }
     </div>
   );

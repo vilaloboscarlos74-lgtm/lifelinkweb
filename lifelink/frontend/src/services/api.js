@@ -173,10 +173,12 @@ export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getUsers: (params) => api.get('/admin/users', { params }),
   toggleUserActive: (id) => api.put(`/admin/users/${id}/toggle-active`),
+  toggleUserVerified: (id) => api.put(`/admin/users/${id}/verify`),
   changeUserRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
   getSupplies: (params) => api.get('/admin/supplies', { params }),
   deleteSupply: (id) => api.delete(`/admin/supplies/${id}`),
   setSupplyStatus: (id, status) => api.put(`/admin/supplies/${id}/status`, { status }),
+  getRequests: (params) => api.get('/admin/requests', { params }),
 };
 
 export default api;
