@@ -42,6 +42,7 @@ class UserPublic(BaseModel):
     is_blood_donor: bool = False
     rating_avg: float = 0.0
     is_verified: bool = False
+    contact_supply_id: Optional[int] = None  # populated by /donors/blood only
 
     @field_validator('is_blood_donor', 'is_verified', mode='before')
     @classmethod

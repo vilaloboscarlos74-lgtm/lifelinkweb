@@ -90,14 +90,33 @@ def search_blood_donors(
     blood_type: Optional[BloodType] = Query(None),
     city: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
+    # Público: no requiere auth para que usuarios no registrados puedan ver donadores
     query = db.query(User).filter(User.is_blood_donor == True, User.is_active == True)
     if blood_type:
         query = query.filter(User.blood_type == blood_type)
     if city:
         query = query.filter(User.city.ilike(f"%{city}%"))
-    return query.all()
+    donors = query.all()
+
+    if donors:
+        from app.models.supply import Supply, SupplyStatus, SupplyCategory
+        donor_ids = [d.id for d in donors]
+        # Una sola query para obtener el supply de sangre de cada donador
+        rows = (
+            db.query(Supply.owner_id, Supply.id)
+            .filter(
+                Supply.owner_id.in_(donor_ids),
+                Supply.status == SupplyStatus.DISPONIBLE,
+                Supply.category == SupplyCategory.SANGRE,
+            )
+            .all()
+        )
+        supply_map = {row.owner_id: row.id for row in rows}
+        for donor in donors:
+            donor.contact_supply_id = supply_map.get(donor.id)
+
+    return donors
 
 
 @router.get("/me/badges")

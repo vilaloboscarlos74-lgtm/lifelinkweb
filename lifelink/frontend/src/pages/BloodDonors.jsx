@@ -31,18 +31,10 @@ const BLOOD_COLORS = {
 
 // ── Tarjeta de donante ─────────────────────────────────────────────────────
 function DonorCard({ donor, currentUser }) {
-  const gradient = BLOOD_COLORS[donor.blood_type] || 'from-red-500 to-rose-600';
+  const gradient = BLOOD_COLORS[donor.blood_type] || 'from-gray-500 to-gray-600';
   const isOwn = currentUser?.id === donor.id;
-  const [contactSupplyId, setContactSupplyId] = useState(null);
-
-  useEffect(() => {
-    // Buscar si el donante tiene algún insumo para poder enviar solicitud de contacto
-    if (!isOwn && currentUser) {
-      suppliesAPI.list({ owner_id: donor.id, limit: 1 })
-        .then(r => { if (r.data?.items?.[0]) setContactSupplyId(r.data.items[0].id); })
-        .catch(() => {});
-    }
-  }, [donor.id, isOwn, currentUser]);
+  // contact_supply_id viene resuelto desde el backend en una sola query
+  const contactSupplyId = donor.contact_supply_id ?? null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden group">
