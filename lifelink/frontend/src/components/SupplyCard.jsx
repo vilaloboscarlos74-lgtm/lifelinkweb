@@ -56,6 +56,11 @@ export default function SupplyCard({ supply, onFavorite }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />
+        ) : supply.category === 'sangre' ? (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-red-100 to-rose-200 dark:from-red-900/40 dark:to-rose-900/40 gap-1.5">
+            <span className="text-5xl drop-shadow">🩸</span>
+            <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Centro de Sangre</span>
+          </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-5xl opacity-60">{CATEGORY_ICONS[supply.category] || '📦'}</span>
