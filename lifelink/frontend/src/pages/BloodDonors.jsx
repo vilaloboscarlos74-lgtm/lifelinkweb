@@ -251,7 +251,6 @@ export default function BloodDonors() {
         description: reqForm.description?.trim() || `Necesito donante de sangre tipo ${reqForm.bloodType}. Por favor contactarme.`,
         supply_type: 'solicitud',
         category: 'sangre',
-        condition: 'nuevo',
         city: reqForm.city?.trim() || undefined,
         is_urgent: reqForm.is_urgent,
         quantity: 1,

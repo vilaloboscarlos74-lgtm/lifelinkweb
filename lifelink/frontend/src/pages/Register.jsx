@@ -67,7 +67,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center px-4 py-10">
 
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 bg-white dark:bg-gray-900 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
 
         {/* LEFT SIDE */}
         <div className="hidden lg:flex relative bg-gradient-to-br from-primary-700 via-primary-800 to-slate-900 text-white p-10 flex-col justify-between overflow-hidden">
@@ -167,11 +167,11 @@ export default function Register() {
 
             {/* Heading */}
             <div className="mb-8">
-              <h2 className="text-3xl font-black text-gray-900">
+              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100">
                 Crear cuenta
               </h2>
 
-              <p className="text-gray-500 mt-2">
+              <p className="text-gray-500 dark:text-gray-400 mt-2">
                 Regístrate para comenzar a ayudar o encontrar apoyo médico.
               </p>
             </div>
@@ -184,7 +184,7 @@ export default function Register() {
 
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Nombre completo *
                 </label>
 
@@ -199,7 +199,7 @@ export default function Register() {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Correo electrónico *
                 </label>
 
@@ -214,7 +214,7 @@ export default function Register() {
 
               {/* Username */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Nombre de usuario *
                 </label>
 
@@ -229,7 +229,7 @@ export default function Register() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Contraseña *
                 </label>
 
@@ -259,7 +259,7 @@ export default function Register() {
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Teléfono
                 </label>
 
@@ -274,7 +274,7 @@ export default function Register() {
 
               {/* Role */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   ¿Qué deseas hacer?
                 </label>
 
@@ -310,7 +310,7 @@ export default function Register() {
               </button>
 
               {/* Login link */}
-              <p className="text-center text-sm text-gray-500 pt-2">
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-2">
                 ¿Ya tienes cuenta?{' '}
 
                 <Link

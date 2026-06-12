@@ -28,19 +28,19 @@ export default function MeetingPoints() {
         <div className="inline-flex items-center gap-2 bg-primary-50 text-primary-700 border border-primary-200 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide mb-4">
           <MapPin size={13} /> Cobertura: CDMX + Estado de México
         </div>
-        <h1 className="text-3xl font-black text-gray-900 mb-2">
+        <h1 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-2">
           Puntos de Encuentro e Intercambio
         </h1>
-        <p className="text-gray-500 text-base max-w-2xl leading-relaxed">
+        <p className="text-gray-500 dark:text-gray-400 text-base max-w-2xl leading-relaxed">
           Lugares seguros y accesibles para intercambiar, donar o recibir insumos médicos.
           Seleccionados cerca de hospitales públicos y estaciones de metro con alta afluencia.
         </p>
       </div>
 
       {/* Aviso */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
-        <Info size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-amber-800">
+      <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-4 mb-6">
+        <Info size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-amber-800 dark:text-amber-300">
           <strong>¿Cómo funciona?</strong> Coordina con el otro usuario por el chat interno
           de LifeLink y acuerden uno de estos puntos de encuentro para realizar la entrega.
           Siempre ve acompañado y elige horarios con mucha gente.
@@ -56,13 +56,13 @@ export default function MeetingPoints() {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 border ${
               filter === key
                 ? 'bg-primary-600 text-white border-primary-600 shadow-md'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300 hover:text-primary-600'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary-300 hover:text-primary-600 dark:hover:border-primary-600 dark:hover:text-primary-400'
             }`}
           >
             <Icon size={14} />
             {label}
             <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-              filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+              filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
             }`}>
               {key === 'all'
                 ? MEETING_POINTS.length
@@ -86,8 +86,8 @@ export default function MeetingPoints() {
                 onClick={() => setSelected(isSelected ? null : point)}
                 className={`w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 ${
                   isSelected
-                    ? 'border-primary-400 bg-primary-50 shadow-md'
-                    : 'border-gray-100 bg-white hover:border-primary-200 hover:shadow-sm'
+                    ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/30 shadow-md'
+                    : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-200 dark:hover:border-primary-700 hover:shadow-sm'
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -98,7 +98,7 @@ export default function MeetingPoints() {
                     {cfg.emoji}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-sm leading-tight mb-0.5 truncate">
+                    <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-tight mb-0.5 truncate">
                       {point.name}
                     </p>
                     {point.lines && (
@@ -106,7 +106,7 @@ export default function MeetingPoints() {
                         Líneas: {point.lines}
                       </p>
                     )}
-                    <p className="text-xs text-gray-400 truncate">{point.address}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{point.address}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {point.tags?.slice(0, 3).map(t => (
                         <span
@@ -127,7 +127,7 @@ export default function MeetingPoints() {
 
                 {/* Detalle expandido */}
                 {isSelected && (
-                  <div className="mt-3 pt-3 border-t border-primary-200 text-xs text-gray-600 leading-relaxed">
+                  <div className="mt-3 pt-3 border-t border-primary-200 dark:border-primary-800 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                     {point.notes}
                     <div className="flex gap-2 mt-2">
                       {point.accessible && (
@@ -152,10 +152,10 @@ export default function MeetingPoints() {
         <div className="lg:col-span-3">
           <div className="sticky top-4">
             <Suspense fallback={
-              <div className="h-[620px] bg-gray-100 rounded-2xl flex items-center justify-center">
+              <div className="h-[620px] bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">Cargando mapa...</p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando mapa...</p>
                 </div>
               </div>
             }>

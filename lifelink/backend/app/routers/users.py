@@ -100,6 +100,15 @@ def search_blood_donors(
     return query.all()
 
 
+@router.get("/me/badges")
+def get_my_badges(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.utils.badges import compute_badges
+    return compute_badges(current_user, db)
+
+
 @router.get("/{user_id}", response_model=UserPublic)
 def get_user_public(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
@@ -115,12 +124,3 @@ def get_user_badges(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     from app.utils.badges import compute_badges
     return compute_badges(user, db)
-
-
-@router.get("/me/badges")
-def get_my_badges(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    from app.utils.badges import compute_badges
-    return compute_badges(current_user, db)

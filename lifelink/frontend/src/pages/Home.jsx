@@ -211,7 +211,7 @@ export default function Home() {
   };
 
   return (
-    <div className="-mx-4 sm:-mx-6 bg-gray-50 min-h-screen">
+    <div className="-mx-4 sm:-mx-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
 
       {/* ── BANNER: VERIFICAR EMAIL ── */}
       {user && !user.email_verified && !emailBannerDismissed && (
@@ -656,65 +656,6 @@ export default function Home() {
               className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all">
               Ver todos los puntos <ArrowRight size={13} />
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ── HISTORIAS DE IMPACTO ── */}
-      <section className="bg-white dark:bg-gray-900 border-y border-gray-100 dark:border-gray-800 py-14">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <span className="inline-flex items-center gap-2 text-rose-600 font-bold text-xs bg-rose-50 dark:bg-rose-900/30 px-4 py-1.5 rounded-full mb-3 uppercase tracking-wide">
-              ❤️ Impacto real
-            </span>
-            <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">Historias de nuestra comunidad</h2>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Personas reales que encontraron ayuda en LifeLink</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                emoji: '🦽',
-                name: 'María G.',
-                city: 'Ciudad de México',
-                story: 'Mi mamá necesitaba una silla de ruedas tras su operación. En menos de 2 días alguien nos la donó. No sabíamos cómo costearla y LifeLink lo hizo posible.',
-                tag: 'Silla de ruedas recibida',
-                color: 'from-blue-50 to-primary-50 dark:from-blue-900/20 dark:to-primary-900/20',
-                border: 'border-primary-100 dark:border-primary-800',
-              },
-              {
-                emoji: '🩸',
-                name: 'Carlos M.',
-                city: 'Guadalajara',
-                story: 'Necesitaba sangre O- urgente para mi papá en cirugía. Publiqué en LifeLink y en horas contactamos a tres donantes. Mi papá salió bien.',
-                tag: 'Donante de sangre encontrado',
-                color: 'from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20',
-                border: 'border-red-100 dark:border-red-800',
-              },
-              {
-                emoji: '🦿',
-                name: 'Sofía R.',
-                city: 'Monterrey',
-                story: 'Doné la prótesis que ya no usaba mi hermano y llegó a alguien que la necesitaba. Ver que algo guardado en casa cambió la vida de otra persona es increíble.',
-                tag: 'Prótesis donada',
-                color: 'from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20',
-                border: 'border-emerald-100 dark:border-emerald-800',
-              },
-            ].map(({ emoji, name, city, story, tag, color, border }) => (
-              <div key={name} className={`bg-gradient-to-br ${color} border ${border} rounded-3xl p-6`}>
-                <div className="text-4xl mb-4">{emoji}</div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mb-4 italic">"{story}"</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">{name}</p>
-                    <p className="text-xs text-gray-400 flex items-center gap-1"><MapPin size={10} />{city}</p>
-                  </div>
-                  <span className="text-[10px] font-bold bg-white/70 dark:bg-gray-800/70 text-gray-600 dark:text-gray-300 px-2.5 py-1 rounded-full border border-white dark:border-gray-700">
-                    {tag}
-                  </span>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
