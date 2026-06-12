@@ -87,13 +87,13 @@ body {
     @apply badge bg-success-100 text-success-700;
   }
   .badge-donation {
-    @apply badge bg-medical-100 text-medical-700;
+    @apply badge bg-medical-100 text-medical-700 dark:bg-medical-900/40 dark:text-medical-300;
   }
   .badge-sale {
-    @apply badge bg-primary-100 text-primary-700;
+    @apply badge bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300;
   }
   .badge-exchange {
-    @apply badge bg-brand-100 text-brand-700;
+    @apply badge bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300;
   }
 
   /* ── Form label ── */
@@ -120,6 +120,15 @@ body {
 .dark body {
   background-color: #0a0f1e;
   color: #e2e8f0;
+}
+
+/* ── Selects en dark mode (el navegador no los oscurece automáticamente) ── */
+.dark select option {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+.dark select {
+  color-scheme: dark;
 }
 
 /* ── Scrollbar ── */

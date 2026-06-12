@@ -12,7 +12,7 @@ const STATUS_CONFIG = {
   pendiente:  { label: 'Pendiente',  cls: 'bg-amber-100 text-amber-700 border-amber-200',   dot: 'bg-amber-400' },
   aceptada:   { label: 'Aceptada',   cls: 'bg-success-100 text-success-700 border-success-200', dot: 'bg-success-500' },
   rechazada:  { label: 'Rechazada',  cls: 'bg-red-100 text-red-700 border-red-200',          dot: 'bg-red-400' },
-  cancelada:  { label: 'Cancelada',  cls: 'bg-gray-100 text-gray-500 border-gray-200',       dot: 'bg-gray-400' },
+  cancelada:  { label: 'Cancelada',  cls: 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600', dot: 'bg-gray-400' },
   completada: { label: 'Completada', cls: 'bg-blue-100 text-blue-700 border-blue-200',       dot: 'bg-blue-400' },
 };
 

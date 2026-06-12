@@ -13,7 +13,7 @@ const MY_REQUEST_STATUS = {
   pendiente:  { label: 'Solicitud enviada — esperando respuesta', color: 'bg-amber-50 border-amber-200 text-amber-800', dot: 'bg-amber-400' },
   aceptada:   { label: '¡Solicitud aceptada! Ya puedes chatear',  color: 'bg-success-50 border-success-200 text-success-800', dot: 'bg-success-500' },
   rechazada:  { label: 'Tu solicitud fue rechazada',              color: 'bg-red-50 border-red-200 text-red-800', dot: 'bg-red-400' },
-  cancelada:  { label: 'Cancelaste tu solicitud',                 color: 'bg-gray-50 border-gray-200 text-gray-600', dot: 'bg-gray-400' },
+  cancelada:  { label: 'Cancelaste tu solicitud',                 color: 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' },
   completada: { label: 'Entrega completada',                      color: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-400' },
 };
 
@@ -21,10 +21,10 @@ const CONDITION_LABELS = {
   nuevo: { label: 'Nuevo', cls: 'bg-success-100 text-success-700' },
   seminuevo: { label: 'Seminuevo', cls: 'bg-blue-100 text-blue-700' },
   usado_buen_estado: { label: 'Buen estado', cls: 'bg-amber-100 text-amber-700' },
-  usado: { label: 'Usado', cls: 'bg-gray-100 text-gray-600' },
+  usado: { label: 'Usado', cls: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' },
 };
 const TYPE_LABELS = {
-  donacion: { label: 'Donación gratuita', cls: 'badge-donation' },
+  donacion: { label: 'Donación', cls: 'badge-donation' },
   venta: { label: 'Venta', cls: 'badge-sale' },
   intercambio: { label: 'Intercambio', cls: 'badge-exchange' },
 };
@@ -157,7 +157,7 @@ export default function SupplyDetail() {
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors group"
+        className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-5 transition-colors group"
       >
         <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
         Volver a la búsqueda
@@ -301,21 +301,23 @@ export default function SupplyDetail() {
 
             {/* Action buttons */}
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleFavorite}
-                disabled={favLoading}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-                  isFavorite
-                    ? 'bg-rose-50 border-rose-300 text-rose-600'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500'
-                }`}
-              >
-                <Heart size={15} className={isFavorite ? 'fill-rose-500 text-rose-500' : ''} />
-                {isFavorite ? 'Guardado' : 'Guardar'}
-              </button>
+              {!isOwner && (
+                <button
+                  onClick={handleFavorite}
+                  disabled={favLoading}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                    isFavorite
+                      ? 'bg-rose-50 border-rose-300 text-rose-600'
+                      : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500'
+                  }`}
+                >
+                  <Heart size={15} className={isFavorite ? 'fill-rose-500 text-rose-500' : ''} />
+                  {isFavorite ? 'Guardado' : 'Guardar'}
+                </button>
+              )}
               <button
                 onClick={handleShare}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 transition-all"
+                className={`${isOwner ? 'flex-1' : 'flex-1'} flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 transition-all`}
               >
                 <Share2 size={15} />
                 Compartir
@@ -416,6 +418,25 @@ export default function SupplyDetail() {
               <p className="text-[10px] text-gray-400 text-center mt-2">
                 El proveedor recibirá una notificación con tu solicitud
               </p>
+            </div>
+          )}
+
+          {/* Solicitud urgente — visible para usuarios que no son dueños */}
+          {user && !isOwner && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-700/50 p-4">
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                <AlertTriangle size={13} /> ¿No encuentras lo que necesitas?
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mb-3">
+                Publica una solicitud urgente para que otros usuarios puedan ayudarte.
+              </p>
+              <Link
+                to="/publish"
+                state={{ prefill: { title: `Busco: ${supply.title}`, category: supply.category, is_urgent: true } }}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-accent-500 hover:bg-accent-600 text-white text-xs font-bold transition-all"
+              >
+                <AlertTriangle size={13} /> Publicar solicitud urgente
+              </Link>
             </div>
           )}
 

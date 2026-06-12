@@ -164,7 +164,7 @@ export default function TwoFactorVerify() {
             <button
               onClick={resendCode}
               disabled={resending || countdown > 0}
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
             >
               {resending
                 ? <><Loader size={14} className="animate-spin" /> Enviando...</>

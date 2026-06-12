@@ -131,7 +131,7 @@ function StepIndicator({ current }) {
               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
                 done    ? 'bg-success-600 text-white shadow-sm' :
                 active  ? 'bg-primary-600 text-white shadow-md ring-4 ring-primary-200' :
-                          'bg-gray-100 text-gray-400'
+                          'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
               }`}>
                 {done ? <CheckCircle2 size={18} /> : step}
               </div>
