@@ -24,6 +24,7 @@ class SupplyCreate(BaseModel):
     brand: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, max_length=100)
     is_urgent: bool = False
+    expires_at: Optional[datetime] = None
 
     @model_validator(mode="after")
     def price_required_for_sale(self) -> "SupplyCreate":
@@ -47,6 +48,7 @@ class SupplyUpdate(BaseModel):
     state: Optional[str] = Field(None, max_length=100)
     quantity: Optional[int] = Field(None, ge=1, le=9999)
     is_urgent: Optional[bool] = None
+    expires_at: Optional[datetime] = None
 
 
 class SupplyImageResponse(BaseModel):
@@ -80,6 +82,7 @@ class SupplyResponse(BaseModel):
     model: Optional[str] = None
     is_urgent: bool
     views_count: int = 0
+    expires_at: Optional[datetime] = None
     owner: UserPublic
     images: List[SupplyImageResponse] = []
     created_at: Optional[datetime] = None

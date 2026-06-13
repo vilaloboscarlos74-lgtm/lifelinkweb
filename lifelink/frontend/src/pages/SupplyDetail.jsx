@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI, requestsAPI, getMediaUrl } from '../services/api';
+import { suppliesAPI, requestsAPI, reportsAPI, getMediaUrl } from '../services/api';
 import {
   MapPin, User, Star, Clock, Eye, Heart, Send, ArrowLeft,
   AlertTriangle, Package, Tag, ChevronLeft, ChevronRight,
-  Share2, MessageCircle,
+  Share2, MessageCircle, Flag, CalendarClock, X, ShieldAlert,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,6 +58,10 @@ export default function SupplyDetail() {
   const [favLoading, setFavLoading] = useState(false);
   const [currentImg, setCurrentImg] = useState(0);
   const [myRequest, setMyRequest] = useState(null);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState('fraude');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     suppliesAPI.get(id)
@@ -124,6 +128,26 @@ export default function SupplyDetail() {
     }
   };
 
+  const handleReport = async () => {
+    if (!user) return navigate('/login');
+    setReporting(true);
+    try {
+      await reportsAPI.create({
+        report_type: 'supply',
+        reason: reportReason,
+        description: reportDesc.trim() || undefined,
+        supply_id: supply.id,
+      });
+      toast.success('Reporte enviado. Lo revisaremos pronto.');
+      setShowReport(false);
+      setReportDesc('');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al enviar reporte');
+    } finally {
+      setReporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto">
@@ -151,6 +175,9 @@ export default function SupplyDetail() {
   const isOwner = user?.id === supply.owner?.id;
   const activeRequest = myRequest && !['rechazada', 'cancelada'].includes(myRequest.status);
   const canContact = user && !isOwner && supply.status === 'disponible' && !activeRequest;
+  const expiryDays = supply.expires_at ? Math.ceil((new Date(supply.expires_at) - new Date()) / 86400000) : null;
+  const isExpired = expiryDays !== null && expiryDays < 0;
+  const isExpiringSoon = expiryDays !== null && expiryDays <= 7 && expiryDays >= 0;
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -299,6 +326,25 @@ export default function SupplyDetail() {
               </span>
             </div>
 
+            {/* Expiry warning */}
+            {isExpired && (
+              <div className="mt-3 p-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2">
+                <CalendarClock size={14} className="text-red-500 flex-shrink-0" />
+                <p className="text-xs font-semibold text-red-700 dark:text-red-400">Este insumo venció el {new Date(supply.expires_at).toLocaleDateString('es-MX')}</p>
+              </div>
+            )}
+            {isExpiringSoon && !isExpired && (
+              <div className="mt-3 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2">
+                <CalendarClock size={14} className="text-amber-600 flex-shrink-0" />
+                <p className="text-xs font-semibold text-amber-800 dark:text-amber-400">Vence en {expiryDays} día{expiryDays !== 1 ? 's' : ''} ({new Date(supply.expires_at).toLocaleDateString('es-MX')})</p>
+              </div>
+            )}
+            {supply.expires_at && !isExpired && !isExpiringSoon && (
+              <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                <CalendarClock size={11} /> Vence: {new Date(supply.expires_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </p>
+            )}
+
             {/* Action buttons */}
             <div className="flex gap-2 mt-4">
               {!isOwner && (
@@ -322,6 +368,15 @@ export default function SupplyDetail() {
                 <Share2 size={15} />
                 Compartir
               </button>
+              {user && !isOwner && (
+                <button
+                  onClick={() => setShowReport(true)}
+                  title="Reportar publicación"
+                  className="w-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-gray-600 text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-all flex-shrink-0"
+                >
+                  <Flag size={14} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -473,6 +528,65 @@ export default function SupplyDetail() {
           )}
         </div>
       </div>
+
+      {/* Report Modal */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowReport(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={18} className="text-red-500" />
+                <h3 className="font-black text-gray-900 dark:text-gray-100">Reportar publicación</h3>
+              </div>
+              <button onClick={() => setShowReport(false)} className="w-8 h-8 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Motivo del reporte</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="input-field text-sm"
+                >
+                  <option value="fraude">Fraude o estafa</option>
+                  <option value="informacion_falsa">Información falsa</option>
+                  <option value="producto_ilegal">Producto ilegal o peligroso</option>
+                  <option value="contenido_inapropiado">Contenido inapropiado</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Descripción (opcional)</label>
+                <textarea
+                  className="input-field resize-none text-sm"
+                  placeholder="Describe el problema con más detalle..."
+                  value={reportDesc}
+                  onChange={(e) => setReportDesc(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                />
+              </div>
+
+              <p className="text-[10px] text-gray-400">Tu reporte es confidencial. Lo revisará nuestro equipo.</p>
+
+              <button
+                onClick={handleReport}
+                disabled={reporting}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {reporting
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><Flag size={15} /> Enviar reporte</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -78,6 +78,7 @@ class Supply(Base):
     model = Column(String(100), nullable=True)
     is_urgent = Column(Boolean, default=False, index=True)
     views_count = Column(Integer, default=0)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
 
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)

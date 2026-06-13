@@ -36,9 +36,11 @@ from app.routers import (
     reviews,
     blood,
     alerts,
+    reports,
 )
 import app.models.blood   # noqa: F401 — registra tablas en Base.metadata
 import app.models.alert   # noqa: F401 — registra tablas en Base.metadata
+import app.models.report  # noqa: F401 — registra tablas en Base.metadata
 
 settings = get_settings()
 
@@ -63,6 +65,7 @@ def _run_migrations():
         "ALTER TABLE blood_donor_records ADD COLUMN IF NOT EXISTS tattoo_date TIMESTAMPTZ",
         "ALTER TABLE blood_donor_records ADD COLUMN IF NOT EXISTS piercing_date TIMESTAMPTZ",
         "ALTER TABLE blood_donor_records ADD COLUMN IF NOT EXISTS surgery_date TIMESTAMPTZ",
+        "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
     ]
 
     # AUTOCOMMIT evita que ALTER TYPE quede dentro de una transacción implícita
@@ -177,6 +180,7 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(reviews.router, prefix="/api")
 app.include_router(blood.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
+app.include_router(reports.router, prefix="/api")
 
 
 # ==========================================

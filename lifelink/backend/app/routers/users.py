@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
 from app.models.user import User, BloodType
 from app.schemas.user import UserResponse, UserUpdate, UserPublic
 from app.utils.dependencies import get_current_user
+from app.utils.security import verify_password, hash_password
 from app.config import get_settings
 from app.utils.cloudinary_service import upload_image, delete_image
+from pydantic import BaseModel, Field
 import logging
 import os
 import uuid
@@ -165,3 +168,136 @@ def get_user_badges(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     from app.utils.badges import compute_badges
     return compute_badges(user, db)
+
+
+# ── Password change ──────────────────────────────────────────────────────────
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+@router.put("/me/password", status_code=200)
+def change_password(
+    data: PasswordChange,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not verify_password(data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+    if data.current_password == data.new_password:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe ser diferente a la actual")
+    current_user.hashed_password = hash_password(data.new_password)
+    db.commit()
+    return {"detail": "Contraseña actualizada correctamente"}
+
+
+# ── Export my data (ARCO) ────────────────────────────────────────────────────
+
+@router.get("/me/export")
+def export_my_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.supply import Supply
+    from app.models.request import ContactRequest
+    from app.models.review import Review
+    from app.models.blood import BloodDonorRecord
+
+    supplies = db.query(Supply).filter(Supply.owner_id == current_user.id).all()
+    sent_requests = db.query(ContactRequest).filter(ContactRequest.sender_id == current_user.id).all()
+    received_requests = db.query(ContactRequest).filter(ContactRequest.receiver_id == current_user.id).all()
+    reviews_given = db.query(Review).filter(Review.reviewer_id == current_user.id).all()
+    reviews_received = db.query(Review).filter(Review.reviewed_id == current_user.id).all()
+    blood_record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == current_user.id).first()
+
+    return {
+        "exported_at": __import__("datetime").datetime.utcnow().isoformat(),
+        "account": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "username": current_user.username,
+            "full_name": current_user.full_name,
+            "city": current_user.city,
+            "state": current_user.state,
+            "bio": current_user.bio,
+            "phone": current_user.phone,
+            "blood_type": current_user.blood_type.value if current_user.blood_type else None,
+            "is_blood_donor": current_user.is_blood_donor,
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        },
+        "supplies": [
+            {
+                "id": s.id, "title": s.title, "category": s.category.value,
+                "supply_type": s.supply_type.value, "status": s.status.value,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in supplies
+        ],
+        "requests_sent": [
+            {
+                "id": r.id, "supply_id": r.supply_id, "status": r.status.value,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in sent_requests
+        ],
+        "requests_received": [
+            {
+                "id": r.id, "supply_id": r.supply_id, "status": r.status.value,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in received_requests
+        ],
+        "reviews_given": [
+            {
+                "id": r.id, "reviewed_id": r.reviewed_id, "rating": r.rating,
+                "comment": r.comment, "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reviews_given
+        ],
+        "reviews_received": [
+            {
+                "id": r.id, "reviewer_id": r.reviewer_id, "rating": r.rating,
+                "comment": r.comment, "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reviews_received
+        ],
+        "blood_record": {
+            "blood_type": current_user.blood_type.value if current_user.blood_type else None,
+            "weight_kg": blood_record.weight_kg if blood_record else None,
+            "total_donations": blood_record.total_donations if blood_record else 0,
+        } if blood_record else None,
+    }
+
+
+# ── Delete account (ARCO — derecho de cancelación) ───────────────────────────
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+    confirmation: str  # must equal "ELIMINAR MI CUENTA"
+
+
+@router.delete("/me", status_code=200)
+def delete_account(
+    data: DeleteAccountRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if data.confirmation != "ELIMINAR MI CUENTA":
+        raise HTTPException(
+            status_code=400,
+            detail='Para confirmar escribe exactamente: ELIMINAR MI CUENTA'
+        )
+    if not verify_password(data.password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+
+    # Soft-delete: deactivate so foreign keys and history are preserved
+    current_user.is_active = False
+    current_user.email = f"deleted_{current_user.id}@deleted.lifelink"
+    current_user.username = f"usuario_eliminado_{current_user.id}"
+    current_user.full_name = "Usuario eliminado"
+    current_user.bio = None
+    current_user.phone = None
+    current_user.avatar_url = None
+    db.commit()
+    return {"detail": "Cuenta eliminada correctamente"}

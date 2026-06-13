@@ -29,6 +29,8 @@ import BloodRecord from './pages/BloodRecord';
 import MyAlerts from './pages/MyAlerts';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 export default function App() {
   return (
@@ -62,6 +64,8 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/puntos-encuentro" element={<MeetingPoints />} />
+            <Route path="/terminos" element={<TermsPage />} />
+            <Route path="/privacidad" element={<PrivacyPage />} />
 
             {/* Protegidas */}
             <Route path="/publish" element={<ProtectedRoute><CreateSupply /></ProtectedRoute>} />

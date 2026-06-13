@@ -1,0 +1,43 @@
+{
+  "name": "LifeLink Medical",
+  "short_name": "LifeLink",
+  "description": "Plataforma de intercambio de insumos médicos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f8fc",
+  "theme_color": "#1355e1",
+  "lang": "es",
+  "orientation": "portrait-primary",
+  "categories": ["health", "medical", "social"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buscar insumos",
+      "short_name": "Buscar",
+      "description": "Busca insumos médicos disponibles",
+      "url": "/supplies",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Publicar insumo",
+      "short_name": "Publicar",
+      "description": "Publica un insumo médico",
+      "url": "/publish",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Donantes de sangre",
+      "short_name": "Sangre",
+      "description": "Encuentra donantes de sangre compatibles",
+      "url": "/donors",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

@@ -76,6 +76,9 @@ export const authAPI = {
 export const usersAPI = {
   getMe: () => api.get('/users/me'),
   updateProfile: (data) => api.put('/users/me', data),
+  changePassword: (data) => api.put('/users/me/password', data),
+  deleteAccount: (data) => api.delete('/users/me', { data }),
+  exportData: () => api.get('/users/me/export'),
   uploadAvatar: (file) => {
     const fd = new FormData();
     fd.append('file', file);
@@ -94,6 +97,8 @@ export const suppliesAPI = {
   create: (data) => api.post('/supplies/', data),
   update: (id, data) => api.put(`/supplies/${id}`, data),
   delete: (id) => api.delete(`/supplies/${id}`),
+  close: (id) => api.put(`/supplies/${id}/close`),
+  getStats: (id) => api.get(`/supplies/${id}/stats`),
   getMy: () => api.get('/supplies/my'),
   uploadImages: (id, files) => {
     const fd = new FormData();
@@ -102,6 +107,7 @@ export const suppliesAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  deleteImage: (supplyId, imageId) => api.delete(`/supplies/${supplyId}/images/${imageId}`),
   toggleFavorite: (id) => api.post(`/supplies/${id}/favorite`),
   getFavorites: () => api.get('/supplies/favorites/my'),
 };
@@ -168,6 +174,14 @@ export const bloodAPI = {
   getDonations: () => api.get('/blood/record/donations'),
   registerDonation: (data) => api.post('/blood/record/donations', data),
   getPublicProfile: (userId) => api.get(`/blood/record/public/${userId}`),
+};
+
+// === REPORTS ===
+export const reportsAPI = {
+  create: (data) => api.post('/reports/', data),
+  getMy: () => api.get('/reports/my'),
+  adminList: (params) => api.get('/reports/admin', { params }),
+  adminResolve: (id, data) => api.put(`/reports/admin/${id}/resolve`, data),
 };
 
 // === ADMIN ===

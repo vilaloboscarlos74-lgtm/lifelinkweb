@@ -193,6 +193,7 @@ export default function CreateSupply() {
     brand: '',
     model: '',
     is_urgent: prefill.is_urgent || false,
+    expires_at: '',
   });
 
   const set = (field) => (e) => {
@@ -326,10 +327,12 @@ export default function CreateSupply() {
         price: form.supply_type === 'venta' && form.price ? parseFloat(form.price) : undefined,
         budget_min: isSolicitud && form.budget_min ? parseFloat(form.budget_min) : undefined,
         budget_max: isSolicitud && form.budget_max ? parseFloat(form.budget_max) : undefined,
+        expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : undefined,
       };
       if (!data.price) delete data.price;
       if (!data.budget_min) delete data.budget_min;
       if (!data.budget_max) delete data.budget_max;
+      if (!data.expires_at) delete data.expires_at;
 
       const res = await suppliesAPI.create(data);
       if (images.length > 0) await suppliesAPI.uploadImages(res.data.id, images);
@@ -743,6 +746,26 @@ export default function CreateSupply() {
           </div>
         </div>
       </div>
+
+      {/* ── Fecha de vencimiento (opcional) ── */}
+      {form.category && form.category !== 'sangre' && (
+        <div>
+          <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block flex items-center gap-1.5">
+            Fecha de vencimiento / expiración
+            <span className="font-normal text-gray-400">(opcional)</span>
+          </label>
+          <input
+            type="date"
+            className="input-field text-sm"
+            value={form.expires_at}
+            onChange={set('expires_at')}
+            min={new Date().toISOString().split('T')[0]}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Para consumibles, medicamentos o suministros con caducidad. La publicación se ocultará automáticamente al vencer.
+          </p>
+        </div>
+      )}
 
       {/* ── Urgencia ── */}
       <div>

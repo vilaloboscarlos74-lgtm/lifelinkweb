@@ -217,14 +217,23 @@ def complete_request(
                 supply.status = SupplyStatus.ENTREGADO
 
     # Notificar al solicitante para que deje una reseña
-    notif = Notification(
+    notif_sender = Notification(
         user_id=req.sender_id,
         type=NotificationType.SOLICITUD_ACEPTADA,
-        title="¡Entrega completada!",
-        content=f"{current_user.full_name} marcó la solicitud como entregada. ¿Quieres dejar una reseña?",
-        link=f"/requests"
+        title="¡Entrega completada! ⭐",
+        content=f"{current_user.full_name} marcó la entrega como realizada. ¡Deja una reseña para ayudar a la comunidad!",
+        link=f"/requests?review={req.id}"
     )
-    db.add(notif)
+    db.add(notif_sender)
+    # También notificar al receptor (dueño del insumo) para que reseñe al solicitante
+    notif_receiver = Notification(
+        user_id=req.receiver_id,
+        type=NotificationType.SOLICITUD_ACEPTADA,
+        title="Entrega marcada como completada ⭐",
+        content=f"¿Cómo fue tu experiencia con {db.query(User).get(req.sender_id).full_name if db.query(User).get(req.sender_id) else 'el solicitante'}? Deja una reseña.",
+        link=f"/requests?review={req.id}"
+    )
+    db.add(notif_receiver)
     db.commit()
 
     return db.query(ContactRequest).options(

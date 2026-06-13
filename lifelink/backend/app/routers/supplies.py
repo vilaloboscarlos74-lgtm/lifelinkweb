@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import List, Optional
+from datetime import datetime, timezone
 from app.database import get_db
 from app.models.user import User
 from app.models.supply import Supply, SupplyImage, SupplyStatus, SupplyCategory, SupplyType, SupplyCondition, Favorite
@@ -158,8 +159,12 @@ def list_supplies(
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(status_code=400, detail="min_price no puede ser mayor que max_price")
 
+    now = datetime.now(timezone.utc)
     # Filtros base (sin joins) para el COUNT eficiente
-    filters = [Supply.status == SupplyStatus.DISPONIBLE]
+    filters = [
+        Supply.status == SupplyStatus.DISPONIBLE,
+        or_(Supply.expires_at == None, Supply.expires_at > now),
+    ]
     if query:
         filters.append(or_(
             Supply.title.ilike(f"%{query}%"),
@@ -333,6 +338,98 @@ async def upload_supply_images(
 
     db.commit()
     return _load_supply(db, supply.id)
+
+
+@router.delete("/{supply_id}/images/{image_id}", status_code=204)
+def delete_supply_image(
+    supply_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    supply = db.query(Supply).filter(
+        Supply.id == supply_id, Supply.owner_id == current_user.id
+    ).first()
+    if not supply:
+        raise HTTPException(status_code=404, detail="Insumo no encontrado o no autorizado")
+
+    image = db.query(SupplyImage).filter(
+        SupplyImage.id == image_id, SupplyImage.supply_id == supply_id
+    ).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
+
+    was_primary = image.is_primary
+    db.delete(image)
+    db.flush()
+
+    # If the deleted image was primary, promote the next one
+    if was_primary:
+        next_img = db.query(SupplyImage).filter(
+            SupplyImage.supply_id == supply_id
+        ).first()
+        if next_img:
+            next_img.is_primary = True
+
+    db.commit()
+
+
+@router.put("/{supply_id}/close", response_model=SupplyResponse)
+def close_supply(
+    supply_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Owner marks their own supply as delivered without going through a request."""
+    supply = db.query(Supply).filter(
+        Supply.id == supply_id, Supply.owner_id == current_user.id
+    ).first()
+    if not supply:
+        raise HTTPException(status_code=404, detail="Insumo no encontrado o no autorizado")
+    if supply.status == SupplyStatus.ENTREGADO:
+        raise HTTPException(status_code=400, detail="El insumo ya está marcado como entregado")
+    supply.status = SupplyStatus.ENTREGADO
+    db.commit()
+    return _load_supply(db, supply.id)
+
+
+@router.get("/{supply_id}/stats")
+def get_supply_stats(
+    supply_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Returns view and request stats for a supply owned by the current user."""
+    from app.models.request import ContactRequest, RequestStatus
+    supply = db.query(Supply).filter(
+        Supply.id == supply_id, Supply.owner_id == current_user.id
+    ).first()
+    if not supply:
+        raise HTTPException(status_code=404, detail="Insumo no encontrado o no autorizado")
+
+    total_requests = db.query(func.count(ContactRequest.id)).filter(
+        ContactRequest.supply_id == supply_id
+    ).scalar() or 0
+    accepted = db.query(func.count(ContactRequest.id)).filter(
+        ContactRequest.supply_id == supply_id,
+        ContactRequest.status == RequestStatus.ACEPTADA
+    ).scalar() or 0
+    completed = db.query(func.count(ContactRequest.id)).filter(
+        ContactRequest.supply_id == supply_id,
+        ContactRequest.status == RequestStatus.COMPLETADA
+    ).scalar() or 0
+    favorited = db.query(func.count(Favorite.id)).filter(
+        Favorite.supply_id == supply_id
+    ).scalar() or 0
+
+    return {
+        "views": supply.views_count,
+        "total_requests": total_requests,
+        "accepted_requests": accepted,
+        "completed_requests": completed,
+        "favorited_by": favorited,
+        "conversion_rate": round(completed / total_requests * 100, 1) if total_requests > 0 else 0,
+    }
 
 
 @router.post("/{supply_id}/favorite")

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useNavigate } from 'react-router-dom';
 import { usersAPI, reviewsAPI, getMediaUrl } from '../services/api';
 import BadgeList from '../components/BadgeList';
 import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
+  Lock, Download, Trash2, Eye, EyeOff, ShieldAlert,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -96,14 +98,27 @@ const THEME_OPTIONS = [
 ];
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const { mode, setMode } = useTheme();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveOk, setSaveOk] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+
+  // Change password
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [showPw, setShowPw] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+
+  // Delete account
+  const [delForm, setDelForm] = useState({ password: '', confirmation: '' });
+  const [delLoading, setDelLoading] = useState(false);
+
+  // Export
+  const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({
     full_name: user?.full_name || '',
     phone: user?.phone || '',
@@ -142,6 +157,66 @@ export default function Profile() {
       is_blood_donor: checked,
       blood_type: checked ? prev.blood_type : '',
     }));
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.next !== pwForm.confirm) {
+      toast.error('Las contraseñas nuevas no coinciden');
+      return;
+    }
+    if (pwForm.next.length < 8) {
+      toast.error('La nueva contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await usersAPI.changePassword({ current_password: pwForm.current, new_password: pwForm.next });
+      toast.success('Contraseña actualizada correctamente');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al cambiar contraseña');
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await usersAPI.exportData();
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lifelink_datos_${user.username}_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Datos exportados correctamente');
+    } catch {
+      toast.error('Error al exportar datos');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
+    if (delForm.confirmation !== 'ELIMINAR MI CUENTA') {
+      toast.error('Escribe exactamente: ELIMINAR MI CUENTA');
+      return;
+    }
+    setDelLoading(true);
+    try {
+      await usersAPI.deleteAccount({ password: delForm.password, confirmation: delForm.confirmation });
+      toast.success('Tu cuenta ha sido eliminada');
+      logout();
+      navigate('/');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al eliminar cuenta');
+    } finally {
+      setDelLoading(false);
+    }
   };
 
   const handleSave = async (e) => {
@@ -467,6 +542,113 @@ export default function Profile() {
             );
           })}
         </div>
+      </div>
+
+      {/* ── Cambiar contraseña ── */}
+      <div className={`${cardCls} mt-5`}>
+        <h3 className={`${headingCls} mb-4`}>
+          <Lock size={15} className="text-primary-600" /> Cambiar contraseña
+        </h3>
+        <form onSubmit={handleChangePassword} className="space-y-3">
+          {[
+            { key: 'current', label: 'Contraseña actual', placeholder: '••••••••' },
+            { key: 'next',    label: 'Nueva contraseña',  placeholder: 'Mínimo 8 caracteres' },
+            { key: 'confirm', label: 'Confirmar nueva contraseña', placeholder: '••••••••' },
+          ].map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className={labelCls}>{label}</label>
+              <div className="relative">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  className="input-field pr-10"
+                  placeholder={placeholder}
+                  value={pwForm[key]}
+                  onChange={(e) => setPwForm((p) => ({ ...p, [key]: e.target.value }))}
+                  required
+                />
+                {key === 'current' && (
+                  <button type="button" onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button type="submit" disabled={pwLoading} className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5">
+            {pwLoading
+              ? <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+              : <><Lock size={14} /> Actualizar contraseña</>
+            }
+          </button>
+        </form>
+      </div>
+
+      {/* ── Exportar datos (ARCO) ── */}
+      <div className={`${cardCls} mt-5`}>
+        <h3 className={`${headingCls} mb-1`}>
+          <Download size={15} className="text-primary-600" /> Exportar mis datos
+        </h3>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+          Descarga toda tu información: perfil, publicaciones, solicitudes y reseñas en formato JSON. Derecho de acceso ARCO (LFPDPPP).
+        </p>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="btn-secondary flex items-center gap-2 w-full justify-center py-2.5"
+        >
+          {exporting
+            ? <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-600 rounded-full animate-spin" />
+            : <><Download size={14} /> Descargar mis datos</>
+          }
+        </button>
+      </div>
+
+      {/* ── Eliminar cuenta (ARCO — derecho de cancelación) ── */}
+      <div className={`mt-5 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-card p-6`}>
+        <h3 className="font-bold text-red-800 dark:text-red-400 text-sm flex items-center gap-2 mb-1">
+          <ShieldAlert size={15} /> Eliminar mi cuenta
+        </h3>
+        <p className="text-xs text-red-700 dark:text-red-500 mb-4 leading-relaxed">
+          Esta acción es irreversible. Tu perfil será anonimizado — tus publicaciones y solicitudes quedarán como "usuario eliminado". Derecho de cancelación ARCO (LFPDPPP).
+        </p>
+        <form onSubmit={handleDeleteAccount} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5">Contraseña actual</label>
+            <input
+              type="password"
+              className="input-field border-red-200 dark:border-red-900 focus:ring-red-300"
+              placeholder="Confirma tu contraseña"
+              value={delForm.password}
+              onChange={(e) => setDelForm((p) => ({ ...p, password: e.target.value }))}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-red-700 dark:text-red-400 mb-1.5">
+              Escribe <span className="font-black">ELIMINAR MI CUENTA</span> para confirmar
+            </label>
+            <input
+              type="text"
+              className="input-field border-red-200 dark:border-red-900 focus:ring-red-300 font-mono"
+              placeholder="ELIMINAR MI CUENTA"
+              value={delForm.confirmation}
+              onChange={(e) => setDelForm((p) => ({ ...p, confirmation: e.target.value }))}
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={delLoading || delForm.confirmation !== 'ELIMINAR MI CUENTA'}
+            className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 dark:disabled:bg-red-900 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+          >
+            {delLoading
+              ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : <><Trash2 size={15} /> Eliminar mi cuenta permanentemente</>
+            }
+          </button>
+        </form>
       </div>
     </div>
   );
