@@ -194,6 +194,35 @@ export default function UserPublicProfile() {
             </div>
           )}
 
+          {/* Botón de contacto */}
+          {currentUser && currentUser.id !== profile?.id && (
+            <div className="mt-3">
+              {donorInfo.contact_supply_id ? (
+                <Link
+                  to={`/supplies/${donorInfo.contact_supply_id}`}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white bg-gradient-to-r ${BLOOD_COLORS[donorInfo.blood_type] || 'from-red-500 to-rose-600'} hover:opacity-90 transition-opacity shadow-sm`}
+                >
+                  <Droplets size={15} /> Solicitar donación de sangre
+                </Link>
+              ) : (
+                <Link
+                  to={`/users/${profile?.id}`}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 hover:bg-red-100 transition-colors"
+                >
+                  <Heart size={15} /> Ver perfil completo
+                </Link>
+              )}
+            </div>
+          )}
+
+          {!currentUser && (
+            <Link to="/login"
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white bg-primary-600 hover:bg-primary-700 transition-colors"
+            >
+              Iniciar sesión para contactar
+            </Link>
+          )}
+
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-3 text-center">
             El tipo de sangre es autodeclarado · Confirmar con laboratorio antes de donar
           </p>

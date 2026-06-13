@@ -28,12 +28,17 @@ class BloodDonorRecord(Base):
     has_diabetes_insulin = Column(Boolean, default=False, nullable=False)
     has_epilepsy = Column(Boolean, default=False, nullable=False)
 
-    # Exclusiones temporales
+    # Exclusiones temporales — booleano genérico (sin fecha)
     had_recent_tattoo = Column(Boolean, default=False, nullable=False)
     had_recent_piercing = Column(Boolean, default=False, nullable=False)
     is_pregnant = Column(Boolean, default=False, nullable=False)
     had_recent_surgery = Column(Boolean, default=False, nullable=False)
     is_breastfeeding = Column(Boolean, default=False, nullable=False)
+
+    # Fechas precisas de exclusiones temporales (permiten caducidad automática)
+    tattoo_date = Column(DateTime(timezone=True), nullable=True)
+    piercing_date = Column(DateTime(timezone=True), nullable=True)
+    surgery_date = Column(DateTime(timezone=True), nullable=True)
 
     # Historial de donaciones
     last_donation_date = Column(DateTime(timezone=True), nullable=True)

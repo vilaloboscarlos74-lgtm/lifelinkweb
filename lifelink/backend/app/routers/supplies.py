@@ -63,6 +63,62 @@ def _fire_alerts(supply: Supply, db: Session):
     db.commit()
 
 
+def _notify_compatible_blood_donors(supply: Supply, db: Session):
+    """Notifica a donantes compatibles cuando se publica una solicitud urgente de sangre."""
+    import re
+    from app.models.notification import Notification, NotificationType
+    from app.models.user import BloodType
+
+    if not supply.is_urgent:
+        return
+
+    match = re.search(r'(AB[+-]|O[+-]|A[+-]|B[+-])', supply.title or '', re.IGNORECASE)
+    if not match:
+        return
+    needed_type = match.group(0).upper()
+
+    # Tipos compatibles que pueden donar al tipo necesitado
+    COMPATIBLE_DONORS: dict[str, list[str]] = {
+        'O-':  ['O-'],
+        'O+':  ['O-', 'O+'],
+        'A-':  ['O-', 'A-'],
+        'A+':  ['O-', 'O+', 'A-', 'A+'],
+        'B-':  ['O-', 'B-'],
+        'B+':  ['O-', 'O+', 'B-', 'B+'],
+        'AB-': ['O-', 'A-', 'B-', 'AB-'],
+        'AB+': ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'],
+    }
+    compatible_types = COMPATIBLE_DONORS.get(needed_type, [])
+    if not compatible_types:
+        return
+
+    # Convertir strings a enum BloodType
+    bt_map = {bt.value: bt for bt in BloodType}
+    bt_enums = [bt_map[t] for t in compatible_types if t in bt_map]
+
+    query = db.query(User).filter(
+        User.is_blood_donor == True,
+        User.is_active == True,
+        User.blood_type.in_(bt_enums),
+        User.id != supply.owner_id,
+    )
+    if supply.city:
+        query = query.filter(User.city.ilike(f"%{supply.city}%"))
+
+    donors = query.limit(50).all()
+    for donor in donors:
+        notif = Notification(
+            user_id=donor.id,
+            type=NotificationType.SISTEMA,
+            title=f"⚡ Solicitud urgente de sangre {needed_type}",
+            content=f"Tu tipo de sangre es compatible. {supply.owner.full_name if supply.owner else 'Alguien'} necesita sangre {needed_type}{' en ' + supply.city if supply.city else ''}.",
+            link=f"/supplies/{supply.id}",
+        )
+        db.add(notif)
+    if donors:
+        db.commit()
+
+
 @router.post("/", response_model=SupplyResponse, status_code=201)
 def create_supply(
     data: SupplyCreate,
@@ -73,6 +129,8 @@ def create_supply(
     db.add(supply)
     db.commit()
     _fire_alerts(supply, db)
+    if supply.category == SupplyCategory.SANGRE and supply.supply_type == SupplyType.SOLICITUD:
+        _notify_compatible_blood_donors(_load_supply(db, supply.id), db)
     return _load_supply(db, supply.id)
 
 

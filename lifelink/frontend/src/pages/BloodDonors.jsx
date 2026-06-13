@@ -22,6 +22,12 @@ const BLOOD_COMPATIBILITY = {
   'AB+': { donates_to: ['AB+'], label: 'Receptor universal' },
 };
 
+// Quién puede donarme a mí según mi tipo
+const CAN_DONATE_TO = {};
+BLOOD_TYPES.forEach(myType => {
+  CAN_DONATE_TO[myType] = BLOOD_TYPES.filter(t => BLOOD_COMPATIBILITY[t].donates_to.includes(myType));
+});
+
 const BLOOD_COLORS = {
   'O+':'from-red-500 to-rose-600', 'O-':'from-red-700 to-rose-800',
   'A+':'from-orange-500 to-red-500', 'A-':'from-orange-700 to-red-700',
@@ -30,11 +36,12 @@ const BLOOD_COLORS = {
 };
 
 // ── Tarjeta de donante ─────────────────────────────────────────────────────
-function DonorCard({ donor, currentUser }) {
+function DonorCard({ donor, currentUser, myBloodType }) {
   const gradient = BLOOD_COLORS[donor.blood_type] || 'from-gray-500 to-gray-600';
   const isOwn = currentUser?.id === donor.id;
-  // contact_supply_id viene resuelto desde el backend en una sola query
   const contactSupplyId = donor.contact_supply_id ?? null;
+  const isCompatible = myBloodType && donor.blood_type &&
+    (CAN_DONATE_TO[myBloodType] || []).includes(donor.blood_type);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-card hover:shadow-card-hover transition-all duration-300 overflow-hidden group">
@@ -90,6 +97,11 @@ function DonorCard({ donor, currentUser }) {
           <span className="flex items-center gap-1 text-[10px] font-semibold text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800">
             <Droplets size={9} /> Donante activo
           </span>
+          {isCompatible && !isOwn && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-200 dark:border-green-800">
+              <CheckCircle size={9} /> Compatible contigo
+            </span>
+          )}
         </div>
 
         {/* Botones de acción */}
@@ -199,6 +211,13 @@ export default function BloodDonors() {
   const [bloodType, setBloodType] = useState('');
   const [city, setCity] = useState('');
   const [showCompatibility, setShowCompatibility] = useState(false);
+  const [compatibleOnly, setCompatibleOnly] = useState(false);
+
+  const myBloodType = user?.blood_type || null;
+  const myCompatibleDonors = myBloodType ? CAN_DONATE_TO[myBloodType] || [] : [];
+  const visibleDonors = compatibleOnly && myBloodType
+    ? donors.filter(d => myCompatibleDonors.includes(d.blood_type))
+    : donors;
 
   // Tab solicitudes
   const [requests, setRequests] = useState([]);
@@ -369,13 +388,30 @@ export default function BloodDonors() {
                     placeholder="Ej: Guadalajara" className="input-field pl-9 text-sm" />
                 </div>
               </div>
-              <div className="sm:self-end">
+              <div className="sm:self-end flex gap-2">
+                {myBloodType && (
+                  <button type="button"
+                    onClick={() => setCompatibleOnly(v => !v)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-all whitespace-nowrap ${
+                      compatibleOnly
+                        ? 'bg-red-600 text-white border-red-600'
+                        : 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50'
+                    }`}>
+                    <Droplets size={13} />
+                    {compatibleOnly ? `Compatibles ${myBloodType} ✓` : `Mi tipo (${myBloodType})`}
+                  </button>
+                )}
                 <button type="submit" disabled={loadingDonors}
                   className="btn-primary flex items-center gap-2 w-full sm:w-auto whitespace-nowrap">
                   <Search size={15} /> {loadingDonors ? 'Buscando...' : 'Buscar'}
                 </button>
               </div>
             </div>
+            {compatibleOnly && myBloodType && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                Mostrando donantes compatibles con tipo <strong>{myBloodType}</strong>: {myCompatibleDonors.join(', ')}
+              </p>
+            )}
           </form>
 
           {/* CTA expediente */}
@@ -414,15 +450,22 @@ export default function BloodDonors() {
               <p className="font-bold text-gray-600 dark:text-gray-400">No encontramos donantes con ese criterio</p>
               <p className="text-sm text-gray-400 mt-1">Intenta con otro tipo de sangre o sin filtrar por ciudad.</p>
             </div>
-          ) : donors.length > 0 ? (
+          ) : visibleDonors.length > 0 ? (
             <>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                <strong className="text-gray-800 dark:text-gray-200">{donors.length}</strong> donante{donors.length !== 1 ? 's' : ''} encontrado{donors.length !== 1 ? 's' : ''}
+                <strong className="text-gray-800 dark:text-gray-200">{visibleDonors.length}</strong> donante{visibleDonors.length !== 1 ? 's' : ''} encontrado{visibleDonors.length !== 1 ? 's' : ''}
+                {compatibleOnly && myBloodType && <span className="text-red-500 ml-1">(compatibles con {myBloodType})</span>}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {donors.map(d => <DonorCard key={d.id} donor={d} currentUser={user} />)}
+                {visibleDonors.map(d => <DonorCard key={d.id} donor={d} currentUser={user} myBloodType={myBloodType} />)}
               </div>
             </>
+          ) : donors.length > 0 && compatibleOnly ? (
+            <div className="text-center py-12">
+              <Droplets size={36} className="text-red-200 dark:text-red-700 mx-auto mb-3" />
+              <p className="font-bold text-gray-600 dark:text-gray-400">No hay donantes compatibles con tu tipo {myBloodType}</p>
+              <button onClick={() => setCompatibleOnly(false)} className="mt-3 text-sm text-primary-600 hover:underline">Ver todos los donantes</button>
+            </div>
           ) : null}
         </div>
       )}

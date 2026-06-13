@@ -163,6 +163,7 @@ export const statsAPI = {
 export const bloodAPI = {
   getRecord: () => api.get('/blood/record'),
   saveRecord: (data) => api.post('/blood/record', data),
+  deleteRecord: () => api.delete('/blood/record'),
   getEligibility: () => api.get('/blood/record/eligibility'),
   getDonations: () => api.get('/blood/record/donations'),
   registerDonation: (data) => api.post('/blood/record/donations', data),

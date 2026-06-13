@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
@@ -16,6 +17,9 @@ MIN_WEIGHT_KG = 50.0
 MIN_AGE_YEARS = 18
 MAX_AGE_YEARS = 65
 MIN_DAYS_BETWEEN_DONATIONS = 60
+TATTOO_EXCLUSION_DAYS = 365
+PIERCING_EXCLUSION_DAYS = 365
+SURGERY_EXCLUSION_DAYS = 180
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -36,6 +40,9 @@ class BloodRecordIn(BaseModel):
     is_pregnant: bool = False
     had_recent_surgery: bool = False
     is_breastfeeding: bool = False
+    tattoo_date: Optional[datetime] = None
+    piercing_date: Optional[datetime] = None
+    surgery_date: Optional[datetime] = None
     notes: Optional[str] = None
 
 
@@ -69,12 +76,31 @@ class DonationOut(DonationIn):
 class EligibilityResult(BaseModel):
     eligible: bool
     reasons: List[str]
+    days_until_eligible: Optional[int] = None  # días hasta próxima donación posible
+
+
+class PublicDonorProfile(BaseModel):
+    user_id: int
+    is_blood_donor: bool
+    blood_type: Optional[str] = None
+    total_donations: int = 0
+    last_donation_year: Optional[int] = None
+    is_currently_eligible: bool = False
+    contact_supply_id: Optional[int] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _days_since(dt: datetime) -> int:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - dt).days
+
+
 def _check_eligibility(record: BloodDonorRecord) -> EligibilityResult:
     reasons: List[str] = []
+    now = datetime.now(timezone.utc)
+    days_until: Optional[int] = None
 
     # Exclusiones permanentes
     if record.has_hiv:
@@ -103,38 +129,62 @@ def _check_eligibility(record: BloodDonorRecord) -> EligibilityResult:
         birth = record.birth_date
         if birth.tzinfo is None:
             birth = birth.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
         age_years = (now - birth).days / 365.25
         if age_years < MIN_AGE_YEARS:
             reasons.append(f"Edad insuficiente ({int(age_years)} años; mínimo {MIN_AGE_YEARS})")
         elif age_years > MAX_AGE_YEARS:
             reasons.append(f"Edad máxima superada ({int(age_years)} años; máximo {MAX_AGE_YEARS})")
 
-    # Exclusiones temporales
-    if record.had_recent_tattoo:
-        reasons.append("Tatuaje reciente (esperar 12 meses)")
-    if record.had_recent_piercing:
-        reasons.append("Piercing reciente (esperar 12 meses)")
+    # Exclusiones temporales con fechas (más precisas)
+    if record.tattoo_date:
+        d = _days_since(record.tattoo_date)
+        if d < TATTOO_EXCLUSION_DAYS:
+            rem = TATTOO_EXCLUSION_DAYS - d
+            reasons.append(f"Tatuaje reciente (hace {d} días; quedan {rem} días)")
+            if days_until is None or rem > days_until:
+                days_until = rem
+    elif record.had_recent_tattoo:
+        reasons.append("Tatuaje reciente (ingresa la fecha para seguimiento exacto)")
+
+    if record.piercing_date:
+        d = _days_since(record.piercing_date)
+        if d < PIERCING_EXCLUSION_DAYS:
+            rem = PIERCING_EXCLUSION_DAYS - d
+            reasons.append(f"Piercing reciente (hace {d} días; quedan {rem} días)")
+            if days_until is None or rem > days_until:
+                days_until = rem
+    elif record.had_recent_piercing:
+        reasons.append("Piercing reciente (ingresa la fecha para seguimiento exacto)")
+
+    if record.surgery_date:
+        d = _days_since(record.surgery_date)
+        if d < SURGERY_EXCLUSION_DAYS:
+            rem = SURGERY_EXCLUSION_DAYS - d
+            reasons.append(f"Cirugía reciente (hace {d} días; quedan {rem} días)")
+            if days_until is None or rem > days_until:
+                days_until = rem
+    elif record.had_recent_surgery:
+        reasons.append("Cirugía reciente (esperar según indicación médica)")
+
     if record.is_pregnant:
         reasons.append("Embarazo actual")
-    if record.had_recent_surgery:
-        reasons.append("Cirugía reciente (esperar según indicación médica)")
     if record.is_breastfeeding:
         reasons.append("Lactancia materna")
 
     # Tiempo desde última donación
     if record.last_donation_date:
-        last = record.last_donation_date
-        if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
-        days_since = (datetime.now(timezone.utc) - last).days
-        if days_since < MIN_DAYS_BETWEEN_DONATIONS:
-            remaining = MIN_DAYS_BETWEEN_DONATIONS - days_since
-            reasons.append(
-                f"Donación reciente (hace {days_since} días; faltan {remaining} días para poder donar)"
-            )
+        d = _days_since(record.last_donation_date)
+        if d < MIN_DAYS_BETWEEN_DONATIONS:
+            rem = MIN_DAYS_BETWEEN_DONATIONS - d
+            reasons.append(f"Donación reciente (hace {d} días; faltan {rem} días para volver a donar)")
+            if days_until is None or rem > days_until:
+                days_until = rem
 
-    return EligibilityResult(eligible=len(reasons) == 0, reasons=reasons)
+    return EligibilityResult(
+        eligible=len(reasons) == 0,
+        reasons=reasons,
+        days_until_eligible=days_until if reasons else None,
+    )
 
 
 def _get_record_or_404(user: User, db: Session) -> BloodDonorRecord:
@@ -174,6 +224,20 @@ def create_or_update_blood_record(
     return record
 
 
+@router.delete("/record", status_code=204)
+def delete_blood_record(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Elimina el expediente médico y revoca el estado de donante activo."""
+    record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == current_user.id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="No tienes expediente médico")
+    db.delete(record)
+    current_user.is_blood_donor = False
+    db.commit()
+
+
 @router.get("/record/eligibility", response_model=EligibilityResult)
 def check_eligibility(
     db: Session = Depends(get_db),
@@ -189,7 +253,7 @@ def list_donations(
     current_user: User = Depends(get_current_user),
 ):
     record = _get_record_or_404(current_user, db)
-    return record.donations
+    return sorted(record.donations, key=lambda d: d.donation_date, reverse=True)
 
 
 @router.post("/record/donations", response_model=DonationOut, status_code=status.HTTP_201_CREATED)
@@ -214,10 +278,8 @@ def register_donation(
         notes=data.notes,
     )
     db.add(donation)
-
     record.last_donation_date = data.donation_date
     record.total_donations += 1
-
     db.commit()
     db.refresh(donation)
     return donation
@@ -225,24 +287,14 @@ def register_donation(
 
 # ── Perfil público de donante (sin datos sensibles) ───────────────────────────
 
-class PublicDonorProfile(BaseModel):
-    user_id: int
-    is_blood_donor: bool
-    blood_type: Optional[str] = None
-    total_donations: int = 0
-    last_donation_year: Optional[int] = None  # solo el año, nunca la fecha exacta
-    is_currently_eligible: bool = False
-
-
 @router.get("/record/public/{user_id}", response_model=PublicDonorProfile)
 def get_public_donor_profile(user_id: int, db: Session = Depends(get_db)):
-    """Información pública del donante: tipo de sangre y estadísticas. Sin datos médicos."""
+    """Información pública: tipo de sangre, donaciones totales, elegibilidad. Sin datos médicos."""
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == user_id).first()
-
     blood_type_val = user.blood_type.value if user.blood_type else None
     total_donations = record.total_donations if record else 0
     last_year = None
@@ -256,6 +308,18 @@ def get_public_donor_profile(user_id: int, db: Session = Depends(get_db)):
             last_year = last.year
         is_eligible = _check_eligibility(record).eligible
 
+    # Buscar insumo de sangre disponible del donante para poder contactarlo
+    contact_supply_id = None
+    if user.is_blood_donor:
+        from app.models.supply import Supply, SupplyStatus, SupplyCategory
+        supply = db.query(Supply).filter(
+            Supply.owner_id == user_id,
+            Supply.status == SupplyStatus.DISPONIBLE,
+            Supply.category == SupplyCategory.SANGRE,
+        ).first()
+        if supply:
+            contact_supply_id = supply.id
+
     return PublicDonorProfile(
         user_id=user_id,
         is_blood_donor=bool(user.is_blood_donor),
@@ -263,4 +327,5 @@ def get_public_donor_profile(user_id: int, db: Session = Depends(get_db)):
         total_donations=total_donations,
         last_donation_year=last_year,
         is_currently_eligible=is_eligible,
+        contact_supply_id=contact_supply_id,
     )

@@ -18,6 +18,21 @@ def compute_badges(user, db: Session) -> list:
         badges.append({"id": "blood_donor", "label": "Donante de Sangre", "icon": "🩸", "color": "red",
                         "desc": "Registrado como donante de sangre activo"})
 
+    # Insignias por donaciones realizadas
+    from app.models.blood import BloodDonorRecord
+    blood_record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == user.id).first()
+    if blood_record:
+        n = blood_record.total_donations
+        if n >= 10:
+            badges.append({"id": "blood_legend", "label": "Héroe de Vida", "icon": "🏅", "color": "red",
+                           "desc": f"Ha realizado {n} donaciones de sangre"})
+        elif n >= 5:
+            badges.append({"id": "blood_hero", "label": "Donante Frecuente", "icon": "💉", "color": "rose",
+                           "desc": f"Ha realizado {n} donaciones de sangre"})
+        elif n >= 1:
+            badges.append({"id": "blood_first", "label": "Primera Donación", "icon": "❤️", "color": "red",
+                           "desc": "Ha realizado su primera donación de sangre"})
+
     supply_count = db.query(func.count(Supply.id)).filter(Supply.owner_id == user.id).scalar() or 0
     if supply_count >= 10:
         badges.append({"id": "super_sharer", "label": "Super Colaborador", "icon": "🏆", "color": "amber",

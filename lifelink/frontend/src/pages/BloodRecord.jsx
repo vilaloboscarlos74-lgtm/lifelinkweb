@@ -32,17 +32,22 @@ const PERMANENT = [
 ];
 
 const TEMPORARY = [
-  { key: 'had_recent_tattoo',   label: 'Tatuaje en últimos 12 meses' },
-  { key: 'had_recent_piercing', label: 'Piercing en últimos 12 meses' },
-  { key: 'is_pregnant',         label: 'Embarazo actual' },
-  { key: 'had_recent_surgery',  label: 'Cirugía reciente' },
-  { key: 'is_breastfeeding',    label: 'Lactancia materna' },
+  { key: 'had_recent_tattoo',   label: 'Tatuaje en últimos 12 meses',  dateKey: 'tattoo_date',   days: 365 },
+  { key: 'had_recent_piercing', label: 'Piercing en últimos 12 meses', dateKey: 'piercing_date', days: 365 },
+  { key: 'is_pregnant',         label: 'Embarazo actual',              dateKey: null,            days: null },
+  { key: 'had_recent_surgery',  label: 'Cirugía reciente',             dateKey: 'surgery_date',  days: 180 },
+  { key: 'is_breastfeeding',    label: 'Lactancia materna',            dateKey: null,            days: null },
 ];
+
+const DATE_KEYS = TEMPORARY.filter(t => t.dateKey).map(t => t.dateKey);
 
 const EMPTY_FORM = {
   weight_kg: '',
   birth_date: '',
   notes: '',
+  tattoo_date: '',
+  piercing_date: '',
+  surgery_date: '',
   ...Object.fromEntries(PERMANENT.map(c => [c.key, false])),
   ...Object.fromEntries(TEMPORARY.map(c => [c.key, false])),
 };
@@ -50,19 +55,40 @@ const EMPTY_FORM = {
 function CheckboxRow({ items, form, onChange }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-      {items.map(({ key, label }) => (
-        <label key={key}
-          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200
-            ${form[key]
-              ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
-              : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}>
-          <input type="checkbox" checked={form[key] || false}
-            onChange={e => onChange(key, e.target.checked)}
-            className="w-4 h-4 accent-red-500 shrink-0" />
-          <span className={`text-sm ${form[key] ? 'text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
-            {label}
-          </span>
-        </label>
+      {items.map(({ key, label, dateKey, days }) => (
+        <div key={key} className={`rounded-xl border transition-all duration-200
+          ${form[key]
+            ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
+            : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'}`}>
+          <label className="flex items-center gap-3 p-3 cursor-pointer">
+            <input type="checkbox" checked={form[key] || false}
+              onChange={e => onChange(key, e.target.checked)}
+              className="w-4 h-4 accent-red-500 shrink-0" />
+            <span className={`text-sm ${form[key] ? 'text-red-700 dark:text-red-300 font-medium' : 'text-gray-700 dark:text-gray-300'}`}>
+              {label}
+            </span>
+          </label>
+          {form[key] && dateKey && (
+            <div className="px-3 pb-3">
+              <label className="text-[11px] text-red-600 dark:text-red-400 font-medium block mb-1">
+                Fecha exacta (para seguimiento automático)
+              </label>
+              <input type="date"
+                value={form[dateKey] || ''}
+                max={new Date().toISOString().substring(0, 10)}
+                onChange={e => onChange(dateKey, e.target.value)}
+                className="input-field text-xs py-1.5"
+              />
+              {form[dateKey] && days && (() => {
+                const dSince = Math.floor((Date.now() - new Date(form[dateKey])) / 86400000);
+                const dLeft = days - dSince;
+                return dLeft > 0
+                  ? <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">⏳ Quedan ~{dLeft} días para poder donar</p>
+                  : <p className="text-[10px] text-green-600 dark:text-green-400 mt-1">✅ Exclusión caducada — ya puedes donar</p>;
+              })()}
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );
@@ -79,6 +105,8 @@ export default function BloodRecord() {
   const [hasRecord, setHasRecord] = useState(false);
   const [consentGiven, setConsentGiven] = useState(false);
   const [showDonationForm, setShowDonationForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [donationDate, setDonationDate] = useState('');
   const [donationLocation, setDonationLocation] = useState('');
   const [registering, setRegistering] = useState(false);
@@ -100,6 +128,9 @@ export default function BloodRecord() {
           weight_kg: d.weight_kg ?? '',
           birth_date: d.birth_date ? d.birth_date.substring(0, 10) : '',
           notes: d.notes ?? '',
+          tattoo_date: d.tattoo_date ? d.tattoo_date.substring(0, 10) : '',
+          piercing_date: d.piercing_date ? d.piercing_date.substring(0, 10) : '',
+          surgery_date: d.surgery_date ? d.surgery_date.substring(0, 10) : '',
           ...Object.fromEntries(PERMANENT.map(c => [c.key, d[c.key] ?? false])),
           ...Object.fromEntries(TEMPORARY.map(c => [c.key, d[c.key] ?? false])),
         });
@@ -143,6 +174,9 @@ export default function BloodRecord() {
         weight_kg: parseFloat(form.weight_kg),
         birth_date: form.birth_date || null,
         notes: form.notes || null,
+        tattoo_date: form.tattoo_date || null,
+        piercing_date: form.piercing_date || null,
+        surgery_date: form.surgery_date || null,
       });
 
       // Actualizar tipo de sangre y estado de donante en el perfil
@@ -185,6 +219,23 @@ export default function BloodRecord() {
     }
   };
 
+  const deleteRecord = async () => {
+    setDeleting(true);
+    try {
+      await bloodAPI.deleteRecord();
+      const res = await usersAPI.updateProfile({ is_blood_donor: false });
+      updateUser(res.data);
+      setHasRecord(false);
+      setForm(EMPTY_FORM);
+      setEligibility(null);
+      setDonations([]);
+      setIsBloodDonor(false);
+      setShowDeleteConfirm(false);
+      toast.success('Expediente eliminado. Tus datos médicos han sido borrados.');
+    } catch { toast.error('Error al eliminar el expediente'); }
+    finally { setDeleting(false); }
+  };
+
   const btGradient = BLOOD_COLORS[bloodType] || 'from-red-500 to-rose-600';
 
   return (
@@ -224,6 +275,35 @@ export default function BloodRecord() {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Estadísticas de impacto + próxima donación */}
+      {hasRecord && donations.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="card p-4 text-center">
+            <p className="text-3xl font-black text-red-600 dark:text-red-400">{donations.length}</p>
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mt-0.5">Donaciones realizadas</p>
+            <p className="text-[11px] text-gray-400 mt-1">≈ hasta <strong>{donations.length * 3}</strong> personas ayudadas</p>
+          </div>
+          <div className="card p-4 text-center">
+            {eligibility?.days_until_eligible != null ? (
+              <>
+                <p className="text-3xl font-black text-amber-500">{eligibility.days_until_eligible}</p>
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mt-0.5">Días para próxima donación</p>
+                <div className="mt-2 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, Math.max(0, 100 - (eligibility.days_until_eligible / 60) * 100))}%` }} />
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-3xl font-black text-green-500">✓</p>
+                <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-0.5">¡Puedes donar hoy!</p>
+                <p className="text-[11px] text-gray-400 mt-1">Han pasado más de 60 días</p>
+              </>
             )}
           </div>
         </div>
@@ -508,6 +588,49 @@ export default function BloodRecord() {
               No hay donaciones registradas aún
             </p>
           )}
+        </div>
+      )}
+
+      {/* Eliminar expediente */}
+      {hasRecord && (
+        <div className="card p-5 border border-red-100 dark:border-red-900/40">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Eliminar expediente médico</p>
+              <p className="text-xs text-gray-400 mt-0.5">Ejercicio de tu derecho de cancelación (LFPDPPP). Acción irreversible.</p>
+            </div>
+            <button onClick={() => setShowDeleteConfirm(true)}
+              className="shrink-0 text-xs font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-3 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              Eliminar datos
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmación eliminar */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mx-auto">
+              <ShieldAlert size={22} className="text-red-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-gray-900 dark:text-gray-100">¿Eliminar expediente médico?</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Se borrarán permanentemente todos tus datos médicos, historial de donaciones y serás removido del directorio de donantes. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={deleteRecord} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-bold text-white transition-colors disabled:opacity-60">
+                {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
