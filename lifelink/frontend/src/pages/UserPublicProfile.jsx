@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { usersAPI, reviewsAPI, suppliesAPI, getMediaUrl } from '../services/api';
+import { usersAPI, reviewsAPI, suppliesAPI, bloodAPI, getMediaUrl } from '../services/api';
 import BadgeList from '../components/BadgeList';
 import { useAuth } from '../context/AuthContext';
 import {
-  MapPin, Star, Shield, Droplets, Package,
-  ArrowLeft, User, Clock, AlertTriangle, Eye,
+  MapPin, Star, Droplets, Package,
+  ArrowLeft, User, Clock, AlertTriangle, Eye, Heart, CheckCircle,
 } from 'lucide-react';
 
 const BLOOD_COLORS = {
@@ -36,6 +36,7 @@ export default function UserPublicProfile() {
   const [profile, setProfile] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [supplies, setSupplies] = useState([]);
+  const [donorInfo, setDonorInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -47,13 +48,15 @@ export default function UserPublicProfile() {
       usersAPI.getPublicProfile(userId),
       reviewsAPI.getForUser(userId),
       suppliesAPI.list({ limit: 6, sort_by: 'created_at', order: 'desc', owner_id: userId }),
-    ]).then(([profileRes, reviewsRes, suppliesRes]) => {
+      bloodAPI.getPublicProfile(userId),
+    ]).then(([profileRes, reviewsRes, suppliesRes, donorRes]) => {
       if (profileRes.status === 'rejected') {
         setNotFound(true);
       } else {
         setProfile(profileRes.value.data);
         if (reviewsRes.status === 'fulfilled') setReviews(reviewsRes.value.data || []);
         if (suppliesRes.status === 'fulfilled') setSupplies(suppliesRes.value.data?.items || []);
+        if (donorRes.status === 'fulfilled') setDonorInfo(donorRes.value.data);
       }
     }).finally(() => setLoading(false));
   }, [id]);
@@ -139,6 +142,80 @@ export default function UserPublicProfile() {
           )}
         </div>
       </div>
+
+      {/* Tarjeta de donante de sangre */}
+      {donorInfo?.is_blood_donor && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-100 dark:border-red-900/40 shadow-card p-6 mb-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${BLOOD_COLORS[donorInfo.blood_type] || 'from-red-500 to-rose-600'} flex items-center justify-center shadow-md shrink-0`}>
+              <Droplets size={18} className="text-white" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 dark:text-gray-100 text-sm flex items-center gap-1.5">
+                Donante de sangre activo
+                {donorInfo.is_currently_eligible && (
+                  <CheckCircle size={14} className="text-green-500" />
+                )}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Dispuesto a donar sangre</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {/* Tipo de sangre */}
+            <div className={`rounded-xl p-3 text-center bg-gradient-to-br ${BLOOD_COLORS[donorInfo.blood_type] || 'from-red-500 to-rose-600'}`}>
+              <p className="text-xl font-black text-white">{donorInfo.blood_type || '?'}</p>
+              <p className="text-[10px] text-white/80 font-medium mt-0.5">Tipo de sangre</p>
+            </div>
+
+            {/* Donaciones */}
+            <div className="rounded-xl p-3 text-center bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800">
+              <p className="text-xl font-black text-red-600 dark:text-red-400">{donorInfo.total_donations}</p>
+              <p className="text-[10px] text-red-500 dark:text-red-400 font-medium mt-0.5">
+                {donorInfo.total_donations === 1 ? 'Donación' : 'Donaciones'}
+              </p>
+            </div>
+
+            {/* Última donación */}
+            <div className="rounded-xl p-3 text-center bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700">
+              <p className="text-xl font-black text-gray-700 dark:text-gray-200">
+                {donorInfo.last_donation_year ?? '—'}
+              </p>
+              <p className="text-[10px] text-gray-400 font-medium mt-0.5">Última donación</p>
+            </div>
+          </div>
+
+          {donorInfo.is_currently_eligible && (
+            <div className="mt-3 flex items-center gap-2 p-2.5 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+              <CheckCircle size={14} className="text-green-600 shrink-0" />
+              <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+                Apto para donar en este momento
+              </p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-3 text-center">
+            El tipo de sangre es autodeclarado · Confirmar con laboratorio antes de donar
+          </p>
+        </div>
+      )}
+
+      {/* Si el propio usuario visita su perfil y es donante, enlace a expediente */}
+      {currentUser?.id === profile?.id && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Heart size={16} className="text-red-500" />
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Tu expediente de donante</p>
+              <p className="text-xs text-gray-400">Gestiona tus datos médicos y donaciones</p>
+            </div>
+          </div>
+          <Link to="/mi-expediente"
+            className="shrink-0 text-xs font-bold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-2 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors border border-red-100 dark:border-red-800">
+            Ver expediente
+          </Link>
+        </div>
+      )}
 
       {/* Publicaciones del donante */}
       {supplies.length > 0 && (

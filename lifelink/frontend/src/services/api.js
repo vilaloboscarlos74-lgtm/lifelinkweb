@@ -166,6 +166,7 @@ export const bloodAPI = {
   getEligibility: () => api.get('/blood/record/eligibility'),
   getDonations: () => api.get('/blood/record/donations'),
   registerDonation: (data) => api.post('/blood/record/donations', data),
+  getPublicProfile: (userId) => api.get(`/blood/record/public/${userId}`),
 };
 
 // === ADMIN ===

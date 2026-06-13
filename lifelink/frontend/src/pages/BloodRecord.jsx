@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Droplets, CheckCircle, XCircle, AlertTriangle, Save,
   Plus, Calendar, MapPin, ClipboardList, ChevronDown, ChevronUp,
-  User, Weight, Heart,
+  User, Heart, ShieldAlert, Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -77,6 +77,7 @@ export default function BloodRecord() {
   const [donations, setDonations] = useState([]);
   const [saving, setSaving] = useState(false);
   const [hasRecord, setHasRecord] = useState(false);
+  const [consentGiven, setConsentGiven] = useState(false);
   const [showDonationForm, setShowDonationForm] = useState(false);
   const [donationDate, setDonationDate] = useState('');
   const [donationLocation, setDonationLocation] = useState('');
@@ -123,6 +124,16 @@ export default function BloodRecord() {
     }
     if (!form.birth_date) {
       toast.error('Ingresa tu fecha de nacimiento'); return;
+    }
+    if (isBloodDonor && !bloodType) {
+      toast.error('Selecciona tu tipo de sangre para registrarte como donante activo'); return;
+    }
+    if (!consentGiven && !hasRecord) {
+      toast.error('Debes aceptar el aviso de privacidad antes de guardar'); return;
+    }
+    if (isBloodDonor && eligibility && !eligibility.eligible) {
+      toast.error('No puedes activarte como donante: no cumples los requisitos de elegibilidad');
+      return;
     }
     setSaving(true);
     try {
@@ -252,21 +263,44 @@ export default function BloodRecord() {
           </div>
 
           {/* ¿Eres donante activo? */}
-          <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all
-            ${isBloodDonor
-              ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20'
-              : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-red-200'}`}>
-            <input type="checkbox" checked={isBloodDonor} onChange={e => setIsBloodDonor(e.target.checked)}
-              className="w-5 h-5 accent-red-500 shrink-0" />
-            <div>
-              <p className={`font-semibold text-sm ${isBloodDonor ? 'text-red-800 dark:text-red-300' : 'text-gray-800 dark:text-gray-200'}`}>
-                🩸 Registrarme como donante activo
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Apareceré en el directorio de donantes para personas que necesiten sangre
-              </p>
-            </div>
-          </label>
+          <div className="space-y-2">
+            <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all
+              ${isBloodDonor
+                ? eligibility && !eligibility.eligible
+                  ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'
+                  : 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20'
+                : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-red-200'}`}>
+              <input type="checkbox" checked={isBloodDonor}
+                onChange={e => {
+                  if (e.target.checked && eligibility && !eligibility.eligible) {
+                    toast.error('No puedes activarte como donante: completa el expediente y verifica que cumples los requisitos');
+                    return;
+                  }
+                  if (e.target.checked && !bloodType) {
+                    toast.error('Primero selecciona tu tipo de sangre');
+                    return;
+                  }
+                  setIsBloodDonor(e.target.checked);
+                }}
+                className="w-5 h-5 accent-red-500 shrink-0" />
+              <div className="flex-1">
+                <p className={`font-semibold text-sm ${isBloodDonor ? 'text-red-800 dark:text-red-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                  🩸 Registrarme como donante activo
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Apareceré en el directorio de donantes para personas que necesiten sangre
+                </p>
+              </div>
+            </label>
+            {isBloodDonor && eligibility && !eligibility.eligible && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                <ShieldAlert size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  <strong>Atención:</strong> actualmente no cumples los requisitos de elegibilidad. Guarda el expediente y actualiza tus datos cuando puedas donar.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sección 2: Datos físicos */}
@@ -344,8 +378,49 @@ export default function BloodRecord() {
             className="input-field text-sm resize-none" />
         </div>
 
+        {/* Aviso legal y consentimiento */}
+        <div className="card p-5 border-2 border-blue-100 dark:border-blue-900/40 space-y-3">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+            <Info size={16} className="shrink-0" />
+            <h3 className="font-bold text-sm">Aviso de Privacidad y Consentimiento</h3>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+            Los datos que proporcionas en este expediente son de carácter <strong>médico y sensible</strong>.
+            Su recopilación y tratamiento se realiza conforme a la{' '}
+            <strong>Ley Federal de Protección de Datos Personales en Posesión de los Particulares (LFPDPPP)</strong>{' '}
+            y a la norma oficial <strong>NOM-253-SSA1-2012</strong> sobre disposición de sangre humana para usos terapéuticos.
+          </p>
+          <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1 list-none">
+            <li className="flex items-start gap-1.5">
+              <span className="text-blue-500 shrink-0">•</span>
+              Solo tú puedes ver tus datos médicos (condiciones, peso, fecha de nacimiento).
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-blue-500 shrink-0">•</span>
+              El público solo ve tu tipo de sangre y conteo de donaciones si eres donante activo.
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-blue-500 shrink-0">•</span>
+              El tipo de sangre es autodeclarado y debe confirmarse con análisis de laboratorio antes de donar.
+            </li>
+            <li className="flex items-start gap-1.5">
+              <span className="text-blue-500 shrink-0">•</span>
+              Puedes ejercer tus derechos ARCO (Acceso, Rectificación, Cancelación, Oposición) en cualquier momento eliminando tu cuenta.
+            </li>
+          </ul>
+          {!hasRecord && (
+            <label className="flex items-start gap-3 cursor-pointer mt-1">
+              <input type="checkbox" checked={consentGiven} onChange={e => setConsentGiven(e.target.checked)}
+                className="w-4 h-4 accent-blue-600 shrink-0 mt-0.5" />
+              <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+                Declaro que la información es verídica y otorgo mi <strong>consentimiento explícito</strong> para el tratamiento de mis datos personales sensibles conforme al aviso de privacidad descrito.
+              </span>
+            </label>
+          )}
+        </div>
+
         {/* Botón guardar */}
-        <button type="submit" disabled={saving}
+        <button type="submit" disabled={saving || (!hasRecord && !consentGiven)}
           className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-60">
           <Save size={18} />
           {saving ? 'Guardando...' : hasRecord ? 'Actualizar expediente' : 'Guardar expediente'}

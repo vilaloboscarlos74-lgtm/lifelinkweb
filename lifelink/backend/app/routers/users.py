@@ -11,10 +11,9 @@ import logging
 import os
 import uuid
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/users", tags=["Usuarios"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 IMAGE_EXTENSIONS = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
@@ -38,8 +37,31 @@ def update_profile(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # mode='json' serializes enums to their string values (e.g. "A+" not "A_POSITIVE")
         update_data = data.model_dump(mode='json', exclude_unset=True)
+
+        # Guard: activating blood donor status requires a complete, eligible medical record
+        if update_data.get('is_blood_donor') is True:
+            from app.models.blood import BloodDonorRecord
+            from app.routers.blood import _check_eligibility
+            record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == current_user.id).first()
+            if not record or record.weight_kg is None or record.birth_date is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Debes completar tu expediente médico (peso y fecha de nacimiento) antes de registrarte como donante activo."
+                )
+            elig = _check_eligibility(record)
+            if not elig.eligible:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No cumples los requisitos para ser donante activo: {'; '.join(elig.reasons)}"
+                )
+            blood_type_new = update_data.get('blood_type') or (current_user.blood_type.value if current_user.blood_type else None)
+            if not blood_type_new:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Debes seleccionar tu tipo de sangre para registrarte como donante activo."
+                )
+
         for field, value in update_data.items():
             setattr(current_user, field, value)
         db.commit()

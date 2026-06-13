@@ -200,7 +200,6 @@ def register_donation(
 ):
     record = _get_record_or_404(current_user, db)
 
-    # Verificar elegibilidad antes de registrar
     eligibility = _check_eligibility(record)
     if not eligibility.eligible:
         raise HTTPException(
@@ -222,3 +221,46 @@ def register_donation(
     db.commit()
     db.refresh(donation)
     return donation
+
+
+# ── Perfil público de donante (sin datos sensibles) ───────────────────────────
+
+class PublicDonorProfile(BaseModel):
+    user_id: int
+    is_blood_donor: bool
+    blood_type: Optional[str] = None
+    total_donations: int = 0
+    last_donation_year: Optional[int] = None  # solo el año, nunca la fecha exacta
+    is_currently_eligible: bool = False
+
+
+@router.get("/record/public/{user_id}", response_model=PublicDonorProfile)
+def get_public_donor_profile(user_id: int, db: Session = Depends(get_db)):
+    """Información pública del donante: tipo de sangre y estadísticas. Sin datos médicos."""
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == user_id).first()
+
+    blood_type_val = user.blood_type.value if user.blood_type else None
+    total_donations = record.total_donations if record else 0
+    last_year = None
+    is_eligible = False
+
+    if record:
+        if record.last_donation_date:
+            last = record.last_donation_date
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            last_year = last.year
+        is_eligible = _check_eligibility(record).eligible
+
+    return PublicDonorProfile(
+        user_id=user_id,
+        is_blood_donor=bool(user.is_blood_donor),
+        blood_type=blood_type_val,
+        total_donations=total_donations,
+        last_donation_year=last_year,
+        is_currently_eligible=is_eligible,
+    )
