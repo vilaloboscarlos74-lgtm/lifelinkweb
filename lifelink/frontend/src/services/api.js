@@ -184,6 +184,11 @@ export const reportsAPI = {
   adminResolve: (id, data) => api.put(`/reports/admin/${id}/resolve`, data),
 };
 
+// === AI CHAT ===
+export const aiAPI = {
+  chat: (data) => api.post('/ai/chat', data),
+};
+
 // === ADMIN ===
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),

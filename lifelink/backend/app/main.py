@@ -37,6 +37,7 @@ from app.routers import (
     blood,
     alerts,
     reports,
+    ai,
 )
 import app.models.blood   # noqa: F401 — registra tablas en Base.metadata
 import app.models.alert   # noqa: F401 — registra tablas en Base.metadata
@@ -181,6 +182,7 @@ app.include_router(reviews.router, prefix="/api")
 app.include_router(blood.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 
 # ==========================================

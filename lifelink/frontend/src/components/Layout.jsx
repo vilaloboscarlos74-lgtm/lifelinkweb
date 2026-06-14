@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Navbar from './Navbar';
+import AIChatWidget from './AIChatWidget';
 import { useAuth } from '../context/AuthContext';
 
 export default function Layout({ children }) {
@@ -20,6 +21,7 @@ export default function Layout({ children }) {
           </div>
         </div>
       </footer>
+      <AIChatWidget />
     </div>
   );
 }
