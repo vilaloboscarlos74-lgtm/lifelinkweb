@@ -5,7 +5,7 @@ import BadgeList from '../components/BadgeList';
 import { useAuth } from '../context/AuthContext';
 import {
   MapPin, Star, Droplets, Package,
-  ArrowLeft, User, Clock, AlertTriangle, Eye, Heart, CheckCircle,
+  ArrowLeft, User, Clock, AlertTriangle, Eye, Heart, CheckCircle, ShieldCheck,
 } from 'lucide-react';
 
 const BLOOD_COLORS = {
@@ -113,7 +113,14 @@ export default function UserPublicProfile() {
               )}
             </div>
             <div className="pb-1">
-              <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">{profile.full_name}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">{profile.full_name}</h1>
+                {profile.email_2fa_enabled && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full">
+                    <ShieldCheck size={11} /> Verificada
+                  </span>
+                )}
+              </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">@{profile.username}</p>
             </div>
           </div>
