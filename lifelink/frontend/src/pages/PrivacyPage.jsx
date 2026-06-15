@@ -91,7 +91,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">7. Seguridad</h2>
             <p className="text-sm leading-relaxed">
-              Implementamos medidas técnicas y organizativas para proteger sus datos: cifrado de contraseñas con bcrypt, tokens JWT con expiración, autenticación de dos factores disponible (TOTP y correo electrónico), y transmisiones cifradas mediante HTTPS.
+              Implementamos medidas técnicas y organizativas para proteger sus datos: cifrado de contraseñas con bcrypt, tokens JWT con expiración y transmisiones cifradas mediante HTTPS.
             </p>
           </section>
 
