@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import smtplib
+import requests
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -48,27 +49,34 @@ async def send_email(to: str, subject: str, html: str) -> bool:
     from app.config import get_settings
     settings = get_settings()
 
-    # Resend primero
+    # Resend primero (via REST API directa — evita incompatibilidades del SDK)
     if settings.RESEND_API_KEY:
         try:
-            import resend
-            resend.api_key = settings.RESEND_API_KEY
             from_addr = settings.FROM_EMAIL or "onboarding@resend.dev"
-            from_label = f"{settings.FROM_NAME} <{from_addr}>" if settings.FROM_NAME else from_addr
-            resend.Emails.send({
-                "from": from_label,
-                "to": [to],
-                "subject": subject,
-                "html": html,
-            })
+            from_name = settings.FROM_NAME or "LifeLink Medical"
+            resp = await asyncio.to_thread(
+                lambda: requests.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": f"{from_name} <{from_addr}>",
+                        "to": [to],
+                        "subject": subject,
+                        "html": html,
+                    },
+                    timeout=15,
+                )
+            )
+            if resp.status_code >= 400:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text}")
             logger.info(f"EMAIL RESEND OK: enviado a {to}")
             return True
         except Exception as e:
             logger.error(f"EMAIL RESEND ERROR enviando a {to}: {e}")
-            # Intentar SMTP como respaldo
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                logger.info("EMAIL: intentando SMTP como respaldo...")
-            else:
+            if not (settings.SMTP_USER and settings.SMTP_PASSWORD):
                 raise
 
     # Respaldo: SMTP
