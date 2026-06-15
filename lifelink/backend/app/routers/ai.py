@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-import anthropic
 import os
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -62,32 +61,40 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 def chat(request: ChatRequest):
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=503, detail="Servicio de IA no disponible en este momento.")
 
     if not request.messages:
         raise HTTPException(status_code=400, detail="Se requieren mensajes.")
 
-    messages = [{"role": m.role, "content": m.content} for m in request.messages]
-
-    # Validate roles alternate user/assistant starting with user
-    if messages[0]["role"] != "user":
+    if request.messages[0].role != "user":
         raise HTTPException(status_code=400, detail="El primer mensaje debe ser del usuario.")
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-opus-4-8",
-            max_tokens=800,
-            system=SYSTEM_PROMPT,
-            messages=messages,
+        import google.generativeai as genai
+
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=SYSTEM_PROMPT,
         )
-        text = "".join(block.text for block in response.content if block.type == "text")
-        return {"message": text}
-    except anthropic.APIConnectionError:
-        raise HTTPException(status_code=503, detail="No se pudo conectar con el servicio de IA.")
-    except anthropic.RateLimitError:
-        raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Intenta de nuevo en un momento.")
-    except Exception:
+
+        # Build history (all messages except the last user message)
+        history = []
+        for m in request.messages[:-1]:
+            gemini_role = "model" if m.role == "assistant" else "user"
+            history.append({"role": gemini_role, "parts": [m.content]})
+
+        chat_session = model.start_chat(history=history)
+        response = chat_session.send_message(request.messages[-1].content)
+
+        return {"message": response.text}
+
+    except Exception as e:
+        err = str(e).lower()
+        if "quota" in err or "rate" in err:
+            raise HTTPException(status_code=429, detail="Demasiadas solicitudes. Intenta de nuevo en un momento.")
+        if "api_key" in err or "api key" in err or "invalid" in err:
+            raise HTTPException(status_code=503, detail="Servicio de IA no configurado correctamente.")
         raise HTTPException(status_code=500, detail="Error al procesar tu mensaje. Intenta de nuevo.")

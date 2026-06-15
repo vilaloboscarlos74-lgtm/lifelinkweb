@@ -17,4 +17,4 @@ pyotp==2.9.0
 qrcode[pil]==8.2
 resend==2.10.0
 twilio==9.3.5
-anthropic==0.57.0
+google-generativeai==0.8.3
