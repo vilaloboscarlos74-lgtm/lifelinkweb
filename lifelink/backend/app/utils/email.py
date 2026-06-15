@@ -42,13 +42,36 @@ def _send_smtp(to: str, subject: str, html: str, settings) -> bool:
 
 async def send_email(to: str, subject: str, html: str) -> bool:
     """
-    Envía un correo usando SMTP (Gmail) o Resend como respaldo.
+    Envía un correo usando Resend como proveedor principal y SMTP como respaldo.
     Devuelve True si se envió, False si no hay configuración disponible.
     """
     from app.config import get_settings
     settings = get_settings()
 
-    # Intentar SMTP primero
+    # Resend primero
+    if settings.RESEND_API_KEY:
+        try:
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            from_addr = settings.FROM_EMAIL or "onboarding@resend.dev"
+            from_label = f"{settings.FROM_NAME} <{from_addr}>" if settings.FROM_NAME else from_addr
+            resend.Emails.send({
+                "from": from_label,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            })
+            logger.info(f"EMAIL RESEND OK: enviado a {to}")
+            return True
+        except Exception as e:
+            logger.error(f"EMAIL RESEND ERROR enviando a {to}: {e}")
+            # Intentar SMTP como respaldo
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                logger.info("EMAIL: intentando SMTP como respaldo...")
+            else:
+                raise
+
+    # Respaldo: SMTP
     if settings.SMTP_USER and settings.SMTP_PASSWORD:
         try:
             await asyncio.to_thread(_send_smtp, to, subject, html, settings)
@@ -58,24 +81,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             logger.error(f"EMAIL SMTP ERROR enviando a {to}: {e}")
             raise
 
-    # Respaldo: Resend
-    if settings.RESEND_API_KEY:
-        try:
-            import resend
-            resend.api_key = settings.RESEND_API_KEY
-            resend.Emails.send({
-                "from": settings.FROM_EMAIL or f"LifeLink <onboarding@resend.dev>",
-                "to": [to],
-                "subject": subject,
-                "html": html,
-            })
-            logger.info(f"EMAIL RESEND OK: enviado a {to}")
-            return True
-        except Exception as e:
-            logger.error(f"EMAIL RESEND ERROR enviando a {to}: {e}")
-            raise
-
-    logger.warning("EMAIL SKIP: no hay SMTP_USER ni RESEND_API_KEY configurados")
+    logger.warning("EMAIL SKIP: no hay RESEND_API_KEY ni SMTP_USER configurados")
     return False
 
 
