@@ -9,6 +9,7 @@ import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
   Lock, Download, Trash2, Eye, EyeOff, ShieldAlert, ShieldCheck, ShieldOff,
+  Smartphone, QrCode, KeyRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -109,12 +110,21 @@ export default function Profile() {
   const [delForm, setDelForm] = useState({ password: '', confirmation: '' });
   const [delLoading, setDelLoading] = useState(false);
 
-  // 2FA
+  // 2FA por email
   const [twoFAStep, setTwoFAStep] = useState('idle'); // 'idle' | 'otp' | 'disable'
   const [twoFAOtp, setTwoFAOtp] = useState('');
   const [twoFAPassword, setTwoFAPassword] = useState('');
   const [twoFALoading, setTwoFALoading] = useState(false);
   const is2FAEnabled = user?.email_2fa_enabled ?? false;
+
+  // TOTP — Autenticador (Google Authenticator / Authy)
+  const [totpStep, setTotpStep] = useState('idle'); // 'idle' | 'setup' | 'confirm' | 'disable'
+  const [totpQR, setTotpQR] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpPassword, setTotpPassword] = useState('');
+  const [totpLoading, setTotpLoading] = useState(false);
+  const isTOTPEnabled = user?.totp_enabled ?? false;
 
   // Export
   const [exporting, setExporting] = useState(false);
@@ -296,6 +306,56 @@ export default function Profile() {
       toast.error(err.response?.data?.detail || 'Contraseña incorrecta');
     } finally {
       setTwoFALoading(false);
+    }
+  };
+
+  const handleTOTPSetup = async () => {
+    setTotpLoading(true);
+    try {
+      const res = await authAPI.setupTOTP();
+      setTotpQR(res.data.qr_code);
+      setTotpSecret(res.data.secret);
+      setTotpStep('setup');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al configurar el autenticador');
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleTOTPConfirm = async (e) => {
+    e.preventDefault();
+    if (totpCode.length !== 6) return toast.error('Ingresa el código de 6 dígitos');
+    setTotpLoading(true);
+    try {
+      await authAPI.confirmTOTP(totpCode);
+      updateUser({ ...user, totp_enabled: true });
+      setTotpStep('idle');
+      setTotpCode('');
+      setTotpQR('');
+      setTotpSecret('');
+      toast.success('¡Autenticador TOTP activado correctamente!');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Código incorrecto. Verifica la hora de tu dispositivo.');
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleTOTPDisable = async (e) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      await authAPI.disableTOTP(totpPassword, totpCode);
+      updateUser({ ...user, totp_enabled: false });
+      setTotpStep('idle');
+      setTotpPassword('');
+      setTotpCode('');
+      toast.success('Autenticador TOTP desactivado');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Datos incorrectos');
+    } finally {
+      setTotpLoading(false);
     }
   };
 
@@ -725,6 +785,172 @@ export default function Profile() {
                 }
               </button>
               <button type="button" onClick={() => { setTwoFAStep('idle'); setTwoFAPassword(''); }} className="btn-secondary px-4 py-2.5">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* ── TOTP — Autenticador ── */}
+      <div className={`${cardCls} mt-5`}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className={headingCls}>
+            <Smartphone size={15} className="text-emerald-600" /> Autenticador (TOTP)
+          </h3>
+          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+            isTOTPEnabled
+              ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30'
+              : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'
+          }`}>
+            {isTOTPEnabled ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 leading-relaxed">
+          Genera códigos de un solo uso con Google Authenticator, Authy u otra app compatible. Más seguro que el código por correo.
+        </p>
+
+        {totpStep === 'idle' && (
+          <>
+            {!isTOTPEnabled ? (
+              <button
+                type="button"
+                onClick={handleTOTPSetup}
+                disabled={totpLoading}
+                className="btn-primary flex items-center gap-2 w-full justify-center py-2.5 bg-emerald-600 hover:bg-emerald-700 from-emerald-600 to-emerald-700"
+              >
+                {totpLoading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><QrCode size={15} /> Configurar autenticador</>
+                }
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setTotpStep('disable')}
+                className="btn-secondary flex items-center gap-2 w-full justify-center py-2.5 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/10"
+              >
+                <ShieldOff size={15} /> Desactivar autenticador
+              </button>
+            )}
+          </>
+        )}
+
+        {totpStep === 'setup' && (
+          <div className="space-y-4">
+            {/* Paso 1 */}
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+              <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center">1</span>
+                Instala una app autenticadora
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                Descarga <strong>Google Authenticator</strong> o <strong>Authy</strong> en tu teléfono (disponibles en App Store y Google Play).
+              </p>
+            </div>
+
+            {/* Paso 2 — QR */}
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-gray-600 text-white text-[10px] font-black flex items-center justify-center">2</span>
+                Escanea el código QR
+              </p>
+              {totpQR && (
+                <div className="flex justify-center mb-3">
+                  <img src={totpQR} alt="Código QR TOTP" className="w-44 h-44 rounded-xl border-4 border-white dark:border-gray-700 shadow-md" />
+                </div>
+              )}
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 text-center mb-2">
+                ¿No puedes escanear? Ingresa esta clave manualmente:
+              </p>
+              <div className="flex items-center gap-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+                <KeyRound size={13} className="text-gray-400 flex-shrink-0" />
+                <span className="font-mono text-xs text-gray-700 dark:text-gray-300 tracking-widest break-all select-all">
+                  {totpSecret}
+                </span>
+              </div>
+            </div>
+
+            {/* Paso 3 — Confirmar */}
+            <form onSubmit={handleTOTPConfirm} className="space-y-3">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-gray-600 text-white text-[10px] font-black flex items-center justify-center">3</span>
+                  Confirma con el primer código
+                </p>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="input-field font-mono tracking-widest text-center text-lg"
+                  placeholder="000000"
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  autoFocus
+                />
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2 text-center">
+                  El código cambia cada 30 segundos. Introdúcelo antes de que expire.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={totpLoading || totpCode.length !== 6}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+                >
+                  {totpLoading
+                    ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <><ShieldCheck size={14} /> Activar autenticador</>
+                  }
+                </button>
+                <button type="button" onClick={() => { setTotpStep('idle'); setTotpCode(''); setTotpQR(''); setTotpSecret(''); }} className="btn-secondary px-4 py-2.5">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {totpStep === 'disable' && (
+          <form onSubmit={handleTOTPDisable} className="space-y-3">
+            <p className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
+              Para desactivar el autenticador, confirma tu contraseña y un código TOTP actual.
+            </p>
+            <div>
+              <label className={labelCls}>Contraseña actual</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="••••••••"
+                value={totpPassword}
+                onChange={(e) => setTotpPassword(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Código del autenticador</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                className="input-field font-mono tracking-widest text-center text-lg"
+                placeholder="000000"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={totpLoading || !totpPassword || totpCode.length !== 6}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm"
+              >
+                {totpLoading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><ShieldOff size={14} /> Desactivar</>
+                }
+              </button>
+              <button type="button" onClick={() => { setTotpStep('idle'); setTotpPassword(''); setTotpCode(''); }} className="btn-secondary px-4 py-2.5">
                 Cancelar
               </button>
             </div>

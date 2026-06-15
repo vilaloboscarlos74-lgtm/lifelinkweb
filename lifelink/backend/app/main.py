@@ -67,6 +67,8 @@ def _run_migrations():
         "ALTER TABLE blood_donor_records ADD COLUMN IF NOT EXISTS piercing_date TIMESTAMPTZ",
         "ALTER TABLE blood_donor_records ADD COLUMN IF NOT EXISTS surgery_date TIMESTAMPTZ",
         "ALTER TABLE supplies ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE",
     ]
 
     # AUTOCOMMIT evita que ALTER TYPE quede dentro de una transacción implícita

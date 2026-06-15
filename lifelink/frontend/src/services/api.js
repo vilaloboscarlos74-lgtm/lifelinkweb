@@ -64,6 +64,12 @@ export const authAPI = {
   enable2FA: () => api.post('/auth/2fa/enable'),
   confirmEnable2FA: (otp) => api.post('/auth/2fa/confirm-enable', { otp }),
   disable2FA: (password) => api.post('/auth/2fa/disable', { password }),
+
+  // TOTP — Autenticador (Google Authenticator / Authy)
+  setupTOTP: () => api.post('/auth/totp/setup'),
+  confirmTOTP: (code) => api.post('/auth/totp/confirm-enable', { code }),
+  verifyTOTP: (temp_token, code) => api.post('/auth/totp/verify', { temp_token, code }),
+  disableTOTP: (password, code) => api.post('/auth/totp/disable', { password, code }),
 };
 
 // === USERS ===

@@ -1,7 +1,12 @@
+import base64
+import io
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
+import pyotp
+import qrcode
+import qrcode.image.pil
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field, field_validator
@@ -57,6 +62,7 @@ def _make_user_payload(user: User) -> dict:
         "is_verified": user.is_verified,
         "email_verified": user.email_verified,
         "email_2fa_enabled": user.email_2fa_enabled,
+        "totp_enabled": user.totp_enabled,
     }
 
 
@@ -158,7 +164,16 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
 
-    # Si el usuario tiene 2FA por email activado, emitir temp_token y enviar OTP
+    # TOTP tiene prioridad sobre email 2FA (más seguro, sin dependencia de red)
+    if user.totp_enabled:
+        temp_token = create_temp_token(user.id)
+        return {
+            "requires_2fa": True,
+            "temp_token": temp_token,
+            "method": "totp",
+        }
+
+    # 2FA por email
     if user.email_2fa_enabled:
         otp = _generate_otp(user, db)
         try:
@@ -173,6 +188,7 @@ async def login(
         return {
             "requires_2fa": True,
             "temp_token": temp_token,
+            "method": "email",
             "masked_email": _mask_email(user.email),
         }
 
@@ -411,3 +427,121 @@ async def disable_2fa(
     current_user.email_otp_expires = None
     db.commit()
     return {"message": "Verificación en dos pasos desactivada", "email_2fa_enabled": False}
+
+
+# ── TOTP — CONFIGURAR (genera secreto + QR) ───────────────────────────────────
+@router.post("/totp/setup")
+async def totp_setup(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="El autenticador TOTP ya está activado")
+
+    secret = pyotp.random_base32()
+    current_user.totp_secret = secret
+    db.commit()
+
+    issuer = "LifeLink Medical"
+    uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=current_user.email,
+        issuer_name=issuer,
+    )
+
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return {
+        "secret": secret,
+        "qr_code": f"data:image/png;base64,{qr_b64}",
+        "uri": uri,
+    }
+
+
+# ── TOTP — CONFIRMAR ACTIVACIÓN ───────────────────────────────────────────────
+class TOTPCodeRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/totp/confirm-enable")
+async def totp_confirm_enable(
+    body: TOTPCodeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="El autenticador ya está activado")
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="Primero configura el autenticador desde /totp/setup")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(body.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="Código incorrecto. Verifica que la hora de tu dispositivo sea correcta.")
+
+    current_user.totp_enabled = True
+    db.commit()
+    return {"message": "Autenticador TOTP activado correctamente", "totp_enabled": True}
+
+
+# ── TOTP — VERIFICAR EN LOGIN ─────────────────────────────────────────────────
+class TOTPVerifyRequest(BaseModel):
+    temp_token: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/totp/verify")
+@_limit("5/minute")
+async def totp_verify_login(
+    request: Request,
+    body: TOTPVerifyRequest,
+    db: Session = Depends(get_db),
+):
+    payload = decode_token(body.temp_token)
+    if not payload or not payload.get("2fa_pending"):
+        raise HTTPException(status_code=400, detail="Token inválido o expirado. Inicia sesión de nuevo.")
+
+    user = db.get(User, int(payload["sub"]))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="Usuario no encontrado")
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(status_code=400, detail="TOTP no está activado en esta cuenta")
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(body.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="Código incorrecto. Recuerda que los códigos se renuevan cada 30 segundos.")
+
+    token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": token, "token_type": "bearer", "user": _make_user_payload(user)}
+
+
+# ── TOTP — DESACTIVAR ─────────────────────────────────────────────────────────
+class TOTPDisableRequest(BaseModel):
+    password: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/totp/disable")
+async def totp_disable(
+    body: TOTPDisableRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not current_user.totp_enabled:
+        raise HTTPException(status_code=400, detail="El autenticador TOTP no está activado")
+    if not verify_password(body.password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(body.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="Código del autenticador incorrecto")
+
+    current_user.totp_enabled = False
+    current_user.totp_secret = None
+    db.commit()
+    return {"message": "Autenticador TOTP desactivado", "totp_enabled": False}

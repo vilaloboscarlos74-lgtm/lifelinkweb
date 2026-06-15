@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
-import { LogIn, Eye, EyeOff, Shield, Heart, Users, Mail, ArrowLeft, RefreshCw } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Shield, Heart, Users, Mail, ArrowLeft, RefreshCw, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { login, complete2FA } = useAuth();
+  const { login, complete2FA, completeTOTP } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
@@ -15,6 +15,7 @@ export default function Login() {
   // Estado 2FA
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [tempToken, setTempToken] = useState('');
+  const [method, setMethod] = useState(''); // 'email' | 'totp'
   const [maskedEmail, setMaskedEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const otpRefs = useRef([]);
@@ -47,11 +48,16 @@ export default function Login() {
       const result = await login(form.username, form.password);
       if (result?.requires_2fa) {
         setTempToken(result.temp_token);
+        setMethod(result.method || 'email');
         setMaskedEmail(result.masked_email || '');
         setOtp(['', '', '', '', '', '']);
-        setResendCooldown(60);
+        if (result.method === 'totp') {
+          toast.success('Introduce el código de tu app autenticadora');
+        } else {
+          setResendCooldown(60);
+          toast.success('Código enviado a tu correo');
+        }
         setStep('otp');
-        toast.success('Código enviado a tu correo');
         return;
       }
       toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
@@ -91,17 +97,24 @@ export default function Login() {
     if (code.length !== 6) return toast.error('Ingresa el código de 6 dígitos');
     setLoading(true);
     try {
-      const result = await complete2FA(tempToken, code);
+      let result;
+      if (method === 'totp') {
+        result = await completeTOTP(tempToken, code);
+      } else {
+        result = await complete2FA(tempToken, code);
+      }
       toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
       navigate('/');
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Código incorrecto o expirado');
+      toast.error(err.response?.data?.detail || 'Código incorrecto');
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
+
+  const isTOTP = method === 'totp';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center px-4 py-10 -mx-4 sm:-mx-6">
@@ -236,18 +249,28 @@ export default function Login() {
             ) : (
               <>
                 <div className="mb-7">
-                  <div className="w-14 h-14 bg-primary-50 dark:bg-primary-900/30 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                    <Mail size={26} className="text-primary-600 dark:text-primary-400" />
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 ${isTOTP ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-primary-50 dark:bg-primary-900/30'}`}>
+                    {isTOTP
+                      ? <Smartphone size={26} className="text-emerald-600 dark:text-emerald-400" />
+                      : <Mail size={26} className="text-primary-600 dark:text-primary-400" />
+                    }
                   </div>
                   <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-2 text-center">
                     Verificación en dos pasos
                   </h2>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm text-center leading-relaxed">
-                    Enviamos un código de 6 dígitos a{' '}
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">
-                      {maskedEmail || 'tu correo'}
-                    </span>
-                  </p>
+                  {isTOTP ? (
+                    <p className="text-gray-500 dark:text-gray-400 text-sm text-center leading-relaxed">
+                      Introduce el código de 6 dígitos de tu app autenticadora
+                      <span className="block text-xs mt-1 text-gray-400">(Google Authenticator, Authy u otra)</span>
+                    </p>
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-sm text-center leading-relaxed">
+                      Enviamos un código de 6 dígitos a{' '}
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                        {maskedEmail || 'tu correo'}
+                      </span>
+                    </p>
+                  )}
                 </div>
 
                 <form onSubmit={handleVerifyOtp} className="space-y-5">
@@ -280,27 +303,33 @@ export default function Login() {
                     )}
                   </button>
 
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={resendCooldown > 0 || resending}
-                      className="text-sm text-primary-600 dark:text-primary-400 hover:underline disabled:text-gray-400 dark:disabled:text-gray-600 disabled:no-underline disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 mx-auto"
-                    >
-                      {resending ? (
-                        <div className="w-3.5 h-3.5 border-2 border-primary-400/30 border-t-primary-600 rounded-full animate-spin" />
-                      ) : (
-                        <RefreshCw size={13} />
-                      )}
-                      {resendCooldown > 0
-                        ? `Reenviar código en ${resendCooldown}s`
-                        : 'No llegó el código · Reenviar'}
-                    </button>
-                  </div>
+                  {isTOTP ? (
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                      Los códigos se renuevan cada 30 segundos
+                    </p>
+                  ) : (
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendCooldown > 0 || resending}
+                        className="text-sm text-primary-600 dark:text-primary-400 hover:underline disabled:text-gray-400 dark:disabled:text-gray-600 disabled:no-underline disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 mx-auto"
+                      >
+                        {resending ? (
+                          <div className="w-3.5 h-3.5 border-2 border-primary-400/30 border-t-primary-600 rounded-full animate-spin" />
+                        ) : (
+                          <RefreshCw size={13} />
+                        )}
+                        {resendCooldown > 0
+                          ? `Reenviar código en ${resendCooldown}s`
+                          : 'No llegó el código · Reenviar'}
+                      </button>
+                    </div>
+                  )}
 
                   <button
                     type="button"
-                    onClick={() => { setStep('credentials'); setOtp(['', '', '', '', '', '']); setMaskedEmail(''); }}
+                    onClick={() => { setStep('credentials'); setOtp(['', '', '', '', '', '']); setMaskedEmail(''); setMethod(''); }}
                     className="w-full flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                   >
                     <ArrowLeft size={14} /> Volver al inicio de sesión

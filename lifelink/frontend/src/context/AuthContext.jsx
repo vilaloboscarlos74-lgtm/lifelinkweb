@@ -30,11 +30,11 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await authAPI.login(username, password);
-    // Si el backend requiere 2FA, devolver el estado pendiente sin iniciar sesión
     if (res.data.requires_2fa) {
       return {
         requires_2fa: true,
         temp_token: res.data.temp_token,
+        method: res.data.method,
         masked_email: res.data.masked_email,
       };
     }
@@ -43,6 +43,11 @@ export function AuthProvider({ children }) {
 
   const complete2FA = async (temp_token, otp) => {
     const res = await authAPI.verify2FA(temp_token, otp);
+    return _saveSession(res.data.access_token, res.data.user);
+  };
+
+  const completeTOTP = async (temp_token, code) => {
+    const res = await authAPI.verifyTOTP(temp_token, code);
     return _saveSession(res.data.access_token, res.data.user);
   };
 
@@ -75,7 +80,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, complete2FA, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, complete2FA, completeTOTP, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
