@@ -57,6 +57,13 @@ export const authAPI = {
   // Recuperación de contraseña
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+
+  // Verificación en dos pasos (2FA por email)
+  verify2FA: (temp_token, otp) => api.post('/auth/2fa/verify', { temp_token, otp }),
+  resend2FA: (temp_token) => api.post('/auth/2fa/resend-otp', { temp_token }),
+  enable2FA: () => api.post('/auth/2fa/enable'),
+  confirmEnable2FA: (otp) => api.post('/auth/2fa/confirm-enable', { otp }),
+  disable2FA: (password) => api.post('/auth/2fa/disable', { password }),
 };
 
 // === USERS ===

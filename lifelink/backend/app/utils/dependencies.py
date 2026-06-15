@@ -21,6 +21,10 @@ def get_current_user(
     if payload is None:
         raise credentials_exception
 
+    # Reject short-lived 2FA pending tokens — they can't authenticate full requests
+    if payload.get("2fa_pending"):
+        raise credentials_exception
+
     user_id_str: str = payload.get("sub")
     if user_id_str is None:
         raise credentials_exception

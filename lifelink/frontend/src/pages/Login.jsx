@@ -1,15 +1,43 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Eye, EyeOff, Shield, Heart, Users } from 'lucide-react';
+import { authAPI } from '../services/api';
+import { LogIn, Eye, EyeOff, Shield, Heart, Users, Mail, ArrowLeft, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, complete2FA } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Estado 2FA
+  const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
+  const [tempToken, setTempToken] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const otpRefs = useRef([]);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const handleOtpChange = (i, val) => {
+    if (!/^\d*$/.test(val)) return;
+    const next = [...otp];
+    next[i] = val.slice(-1);
+    setOtp(next);
+    if (val && i < 5) otpRefs.current[i + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (i, e) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,10 +45,59 @@ export default function Login() {
     setLoading(true);
     try {
       const result = await login(form.username, form.password);
+      if (result?.requires_2fa) {
+        setTempToken(result.temp_token);
+        setMaskedEmail(result.masked_email || '');
+        setOtp(['', '', '', '', '', '']);
+        setResendCooldown(60);
+        setStep('otp');
+        toast.success('Código enviado a tu correo');
+        return;
+      }
       toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
       navigate('/');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Credenciales incorrectas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    try {
+      await authAPI.resend2FA(tempToken);
+      setResendCooldown(60);
+      setOtp(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+      toast.success('Nuevo código enviado a tu correo');
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'No se pudo reenviar el código';
+      if (msg.includes('expirado') || msg.includes('inválido')) {
+        toast.error('La sesión expiró. Inicia sesión de nuevo.');
+        setStep('credentials');
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    const code = otp.join('');
+    if (code.length !== 6) return toast.error('Ingresa el código de 6 dígitos');
+    setLoading(true);
+    try {
+      const result = await complete2FA(tempToken, code);
+      toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
+      navigate('/');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Código incorrecto o expirado');
+      setOtp(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
@@ -85,74 +162,152 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="mb-8">
-              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1.5">Iniciar Sesión</h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Accede a tu cuenta de LifeLink</p>
-            </div>
+            {step === 'credentials' ? (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-1.5">Iniciar Sesión</h2>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Accede a tu cuenta de LifeLink</p>
+                </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Usuario o correo
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="tu_usuario o correo@ejemplo.com"
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  autoComplete="username"
-                />
-              </div>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Usuario o correo
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="tu_usuario o correo@ejemplo.com"
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                      autoComplete="username"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Contraseña
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPass ? 'text' : 'password'}
-                    className="input-field pr-11"
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    autoComplete="current-password"
-                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Contraseña
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPass ? 'text' : 'password'}
+                        className="input-field pr-11"
+                        placeholder="••••••••"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end -mt-1">
+                    <Link to="/forgot-password" className="text-xs text-primary-600 hover:underline font-medium">
+                      ¿Olvidaste tu contraseña?
+                    </Link>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <><LogIn size={18} /> Iniciar Sesión</>
+                    )}
+                  </button>
+
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-1">
+                    ¿No tienes cuenta?{' '}
+                    <Link to="/register" className="text-primary-600 font-bold hover:underline">
+                      Regístrate gratis
+                    </Link>
+                  </p>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="mb-7">
+                  <div className="w-14 h-14 bg-primary-50 dark:bg-primary-900/30 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                    <Mail size={26} className="text-primary-600 dark:text-primary-400" />
+                  </div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100 mb-2 text-center">
+                    Verificación en dos pasos
+                  </h2>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm text-center leading-relaxed">
+                    Enviamos un código de 6 dígitos a{' '}
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
+                      {maskedEmail || 'tu correo'}
+                    </span>
+                  </p>
+                </div>
+
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <div className="flex gap-2 justify-center">
+                    {otp.map((digit, i) => (
+                      <input
+                        key={i}
+                        ref={(el) => (otpRefs.current[i] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(i, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                        className="w-11 h-14 text-center text-xl font-black border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all"
+                        autoFocus={i === 0}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.join('').length !== 6}
+                    className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <><Shield size={18} /> Verificar código</>
+                    )}
+                  </button>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resendCooldown > 0 || resending}
+                      className="text-sm text-primary-600 dark:text-primary-400 hover:underline disabled:text-gray-400 dark:disabled:text-gray-600 disabled:no-underline disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 mx-auto"
+                    >
+                      {resending ? (
+                        <div className="w-3.5 h-3.5 border-2 border-primary-400/30 border-t-primary-600 rounded-full animate-spin" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                      {resendCooldown > 0
+                        ? `Reenviar código en ${resendCooldown}s`
+                        : 'No llegó el código · Reenviar'}
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setShowPass(!showPass)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    onClick={() => { setStep('credentials'); setOtp(['', '', '', '', '', '']); setMaskedEmail(''); }}
+                    className="w-full flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                   >
-                    {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
+                    <ArrowLeft size={14} /> Volver al inicio de sesión
                   </button>
-                </div>
-              </div>
-
-              <div className="flex justify-end -mt-1">
-                <Link to="/forgot-password" className="text-xs text-primary-600 hover:underline font-medium">
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white font-bold py-3.5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <><LogIn size={18} /> Iniciar Sesión</>
-                )}
-              </button>
-
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400 pt-1">
-                ¿No tienes cuenta?{' '}
-                <Link to="/register" className="text-primary-600 font-bold hover:underline">
-                  Regístrate gratis
-                </Link>
-              </p>
-            </form>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>

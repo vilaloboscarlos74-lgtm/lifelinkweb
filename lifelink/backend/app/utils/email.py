@@ -25,6 +25,9 @@ _HEADER = """
 """
 
 
+_SMTP_TIMEOUT = 20  # segundos — evita colgar el worker si Gmail no responde
+
+
 def _send_smtp(to: str, subject: str, html: str, settings) -> bool:
     """Envío SMTP síncrono — se ejecuta en un thread separado."""
     msg = MIMEMultipart("alternative")
@@ -33,7 +36,7 @@ def _send_smtp(to: str, subject: str, html: str, settings) -> bool:
     msg["To"] = to
     msg.attach(MIMEText(html, "html", "utf-8"))
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=_SMTP_TIMEOUT) as server:
         server.ehlo()
         server.starttls()
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)

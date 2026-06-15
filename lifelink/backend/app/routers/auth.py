@@ -1,4 +1,5 @@
 import logging
+import random
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -16,10 +17,14 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
 from app.utils.security import (
     create_reset_token, decode_reset_token,
+    create_temp_token, decode_token,
     hash_password, verify_password,
     create_access_token,
 )
-from app.utils.email import send_verification_email, send_reset_password_email
+from app.utils.email import (
+    send_verification_email, send_reset_password_email,
+    send_otp_email, send_2fa_enabled_email,
+)
 from app.config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -52,7 +57,34 @@ def _make_user_payload(user: User) -> dict:
         "avatar_url": user.avatar_url,
         "is_verified": user.is_verified,
         "email_verified": user.email_verified,
+        "email_2fa_enabled": user.email_2fa_enabled,
     }
+
+
+def _generate_otp(user: User, db) -> str:
+    otp = f"{random.randint(0, 999999):06d}"
+    user.email_otp = otp
+    user.email_otp_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    db.commit()
+    return otp
+
+
+def _mask_email(email: str) -> str:
+    local, domain = email.split("@", 1)
+    visible = local[:2] if len(local) >= 2 else local[:1]
+    return f"{visible}{'*' * max(len(local) - 2, 3)}@{domain}"
+
+
+def _verify_otp(user: User, otp: str) -> None:
+    now = datetime.now(timezone.utc)
+    expires = user.email_otp_expires
+    if expires and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    # Verificar expiración primero para dar el mensaje correcto
+    if not user.email_otp or not expires or now > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado. Solicita uno nuevo.")
+    if user.email_otp != otp.strip():
+        raise HTTPException(status_code=400, detail="Código incorrecto")
 
 
 def _get_user_or_404(user_id: int, db: Session) -> User:
@@ -127,6 +159,20 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
 
+    # Si el usuario tiene 2FA por email activado, emitir temp_token y enviar OTP
+    if user.email_2fa_enabled:
+        otp = _generate_otp(user, db)
+        try:
+            await send_otp_email(user.email, user.username, otp)
+        except Exception as e:
+            logger.error(f"Error enviando OTP a {user.email}: {e}")
+        temp_token = create_temp_token(user.id)
+        return {
+            "requires_2fa": True,
+            "temp_token": temp_token,
+            "masked_email": _mask_email(user.email),
+        }
+
     token = create_access_token(data={
         "sub": str(user.id),
         "username": user.username,
@@ -171,7 +217,14 @@ async def resend_verification(request: Request, email: str, db: Session = Depend
     user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=24)
     db.commit()
 
-    await send_verification_email(user.email, user.username, token)
+    try:
+        await send_verification_email(user.email, user.username, token)
+    except Exception as e:
+        logger.error(f"Error enviando verificación a {user.email}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo enviar el correo. Verifica que el servidor de email esté configurado."
+        )
     return {"message": "Si el correo está registrado, recibirás un nuevo enlace"}
 
 
@@ -222,3 +275,136 @@ async def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_d
     user.hashed_password = hash_password(body.password)
     db.commit()
     return {"detail": "Contraseña actualizada correctamente. Ya puedes iniciar sesión."}
+
+
+# ── 2FA — VERIFICAR OTP EN LOGIN ──────────────────────────────────────────────
+class TwoFALoginRequest(BaseModel):
+    temp_token: str
+    otp: str
+
+
+@router.post("/2fa/verify")
+@_limit("5/minute")
+async def verify_2fa_login(
+    request: Request, body: TwoFALoginRequest, db: Session = Depends(get_db)
+):
+    payload = decode_token(body.temp_token)
+    if not payload or not payload.get("2fa_pending"):
+        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+    user = db.get(User, int(payload["sub"]))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="Usuario no encontrado")
+
+    _verify_otp(user, body.otp)
+
+    user.email_otp = None
+    user.email_otp_expires = None
+    db.commit()
+
+    token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": token, "token_type": "bearer", "user": _make_user_payload(user)}
+
+
+# ── 2FA — REENVIAR OTP DE LOGIN ──────────────────────────────────────────────
+class ResendOTPRequest(BaseModel):
+    temp_token: str
+
+
+@router.post("/2fa/resend-otp")
+@_limit("2/minute")
+async def resend_2fa_otp(
+    request: Request, body: ResendOTPRequest, db: Session = Depends(get_db)
+):
+    payload = decode_token(body.temp_token)
+    if not payload or not payload.get("2fa_pending"):
+        raise HTTPException(status_code=400, detail="Token inválido o expirado. Inicia sesión de nuevo.")
+
+    user = db.get(User, int(payload["sub"]))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=400, detail="Usuario no encontrado")
+    if not user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Este usuario no tiene 2FA activo")
+
+    otp = _generate_otp(user, db)
+    try:
+        await send_otp_email(user.email, user.username, otp)
+    except Exception as e:
+        logger.error(f"Error reenviando OTP a {user.email}: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo reenviar el código. Intenta de nuevo.")
+    return {"message": "Código reenviado correctamente"}
+
+
+# ── 2FA — ACTIVAR (paso 1: enviar OTP) ───────────────────────────────────────
+@router.post("/2fa/enable")
+@_limit("3/minute")
+async def enable_2fa_send_otp(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="El 2FA por email ya está activado")
+
+    otp = _generate_otp(current_user, db)
+    try:
+        await send_otp_email(current_user.email, current_user.username, otp)
+    except Exception as e:
+        logger.error(f"Error enviando OTP de activación a {current_user.email}: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo enviar el código. Intenta de nuevo.")
+    return {"message": "Código enviado a tu correo. Tienes 10 minutos para confirmarlo."}
+
+
+# ── 2FA — ACTIVAR (paso 2: confirmar OTP) ────────────────────────────────────
+class OTPRequest(BaseModel):
+    otp: str
+
+
+@router.post("/2fa/confirm-enable")
+@_limit("5/minute")
+async def enable_2fa_confirm(
+    request: Request,
+    body: OTPRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _verify_otp(current_user, body.otp)
+
+    current_user.email_2fa_enabled = True
+    current_user.email_otp = None
+    current_user.email_otp_expires = None
+    db.commit()
+
+    try:
+        await send_2fa_enabled_email(current_user.email, current_user.username)
+    except Exception as e:
+        logger.error(f"Error enviando confirmación 2FA a {current_user.email}: {e}")
+
+    return {"message": "Verificación en dos pasos activada correctamente", "email_2fa_enabled": True}
+
+
+# ── 2FA — DESACTIVAR ──────────────────────────────────────────────────────────
+class DisableTwoFARequest(BaseModel):
+    password: str
+
+
+@router.post("/2fa/disable")
+async def disable_2fa(
+    body: DisableTwoFARequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not current_user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="El 2FA no está activado")
+    if not verify_password(body.password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña incorrecta")
+
+    current_user.email_2fa_enabled = False
+    current_user.email_otp = None
+    current_user.email_otp_expires = None
+    db.commit()
+    return {"message": "Verificación en dos pasos desactivada", "email_2fa_enabled": False}

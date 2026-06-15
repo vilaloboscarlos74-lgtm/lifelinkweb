@@ -30,16 +30,20 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await authAPI.login(username, password);
-    const { access_token, user: userData } = res.data;
-    localStorage.setItem('token', access_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-    try {
-      const meRes = await usersAPI.getMe();
-      setUser(meRes.data);
-      localStorage.setItem('user', JSON.stringify(meRes.data));
-    } catch { /* non-fatal */ }
-    return userData;
+    // Si el backend requiere 2FA, devolver el estado pendiente sin iniciar sesión
+    if (res.data.requires_2fa) {
+      return {
+        requires_2fa: true,
+        temp_token: res.data.temp_token,
+        masked_email: res.data.masked_email,
+      };
+    }
+    return _saveSession(res.data.access_token, res.data.user);
+  };
+
+  const complete2FA = async (temp_token, otp) => {
+    const res = await authAPI.verify2FA(temp_token, otp);
+    return _saveSession(res.data.access_token, res.data.user);
   };
 
   const _saveSession = async (access_token, userData) => {
@@ -71,7 +75,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, complete2FA, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

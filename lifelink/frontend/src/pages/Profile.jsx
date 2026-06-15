@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
-import { usersAPI, reviewsAPI, getMediaUrl } from '../services/api';
+import { usersAPI, reviewsAPI, authAPI, getMediaUrl } from '../services/api';
 import BadgeList from '../components/BadgeList';
 import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
-  Lock, Download, Trash2, Eye, EyeOff, ShieldAlert,
+  Lock, Download, Trash2, Eye, EyeOff, ShieldAlert, ShieldCheck, ShieldOff,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -116,6 +116,13 @@ export default function Profile() {
   // Delete account
   const [delForm, setDelForm] = useState({ password: '', confirmation: '' });
   const [delLoading, setDelLoading] = useState(false);
+
+  // 2FA
+  const [twoFAStep, setTwoFAStep] = useState('idle'); // 'idle' | 'otp' | 'disable'
+  const [twoFAOtp, setTwoFAOtp] = useState('');
+  const [twoFAPassword, setTwoFAPassword] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const is2FAEnabled = user?.email_2fa_enabled ?? false;
 
   // Export
   const [exporting, setExporting] = useState(false);
@@ -251,6 +258,52 @@ export default function Profile() {
       toast.error(msg, { duration: 6000 });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handle2FAEnable = async () => {
+    setTwoFALoading(true);
+    try {
+      await authAPI.enable2FA();
+      setTwoFAStep('otp');
+      toast.success('Código enviado a tu correo');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al enviar código');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handle2FAConfirm = async (e) => {
+    e.preventDefault();
+    if (twoFAOtp.length !== 6) return toast.error('Ingresa el código de 6 dígitos');
+    setTwoFALoading(true);
+    try {
+      await authAPI.confirmEnable2FA(twoFAOtp);
+      updateUser({ ...user, email_2fa_enabled: true });
+      setTwoFAStep('idle');
+      setTwoFAOtp('');
+      toast.success('¡Verificación en dos pasos activada!');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Código incorrecto o expirado');
+    } finally {
+      setTwoFALoading(false);
+    }
+  };
+
+  const handle2FADisable = async (e) => {
+    e.preventDefault();
+    setTwoFALoading(true);
+    try {
+      await authAPI.disable2FA(twoFAPassword);
+      updateUser({ ...user, email_2fa_enabled: false });
+      setTwoFAStep('idle');
+      setTwoFAPassword('');
+      toast.success('Verificación en dos pasos desactivada');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Contraseña incorrecta');
+    } finally {
+      setTwoFALoading(false);
     }
   };
 
@@ -584,6 +637,113 @@ export default function Profile() {
             }
           </button>
         </form>
+      </div>
+
+      {/* ── Verificación en dos pasos ── */}
+      <div className={`${cardCls} mt-5`}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className={headingCls}>
+            <ShieldCheck size={15} className="text-primary-600" /> Verificación en dos pasos
+          </h3>
+          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+            is2FAEnabled
+              ? 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30'
+              : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'
+          }`}>
+            {is2FAEnabled ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 leading-relaxed">
+          Cada vez que inicies sesión, te enviaremos un código de 6 dígitos a tu correo para confirmar tu identidad.
+        </p>
+
+        {twoFAStep === 'idle' && (
+          <>
+            {!is2FAEnabled ? (
+              <button
+                type="button"
+                onClick={handle2FAEnable}
+                disabled={twoFALoading}
+                className="btn-primary flex items-center gap-2 w-full justify-center py-2.5"
+              >
+                {twoFALoading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><ShieldCheck size={15} /> Activar verificación en dos pasos</>
+                }
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setTwoFAStep('disable')}
+                className="btn-secondary flex items-center gap-2 w-full justify-center py-2.5 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-900/10"
+              >
+                <ShieldOff size={15} /> Desactivar verificación en dos pasos
+              </button>
+            )}
+          </>
+        )}
+
+        {twoFAStep === 'otp' && (
+          <form onSubmit={handle2FAConfirm} className="space-y-3">
+            <p className="text-xs text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 rounded-xl p-3">
+              Ingresa el código de 6 dígitos que enviamos a tu correo para confirmar la activación.
+            </p>
+            <div>
+              <label className={labelCls}>Código de verificación</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                className="input-field font-mono tracking-widest text-center text-lg"
+                placeholder="000000"
+                value={twoFAOtp}
+                onChange={(e) => setTwoFAOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={twoFALoading || twoFAOtp.length !== 6} className="btn-primary flex-1 flex items-center justify-center gap-2 py-2.5">
+                {twoFALoading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><ShieldCheck size={14} /> Confirmar</>
+                }
+              </button>
+              <button type="button" onClick={() => { setTwoFAStep('idle'); setTwoFAOtp(''); }} className="btn-secondary px-4 py-2.5">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+
+        {twoFAStep === 'disable' && (
+          <form onSubmit={handle2FADisable} className="space-y-3">
+            <p className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
+              Confirma tu contraseña para desactivar la verificación en dos pasos.
+            </p>
+            <div>
+              <label className={labelCls}>Contraseña actual</label>
+              <input
+                type="password"
+                className="input-field"
+                placeholder="••••••••"
+                value={twoFAPassword}
+                onChange={(e) => setTwoFAPassword(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={twoFALoading || !twoFAPassword} className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm">
+                {twoFALoading
+                  ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><ShieldOff size={14} /> Desactivar</>
+                }
+              </button>
+              <button type="button" onClick={() => { setTwoFAStep('idle'); setTwoFAPassword(''); }} className="btn-secondary px-4 py-2.5">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* ── Exportar datos (ARCO) ── */}

@@ -175,6 +175,13 @@ export default function Home() {
   const [showMeetingMap, setShowMeetingMap] = useState(false);
   const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendEmailCooldown, setResendEmailCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendEmailCooldown <= 0) return;
+    const t = setTimeout(() => setResendEmailCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendEmailCooldown]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -199,12 +206,19 @@ export default function Home() {
   };
 
   const handleResendEmail = async () => {
+    if (resendingEmail || resendEmailCooldown > 0) return;
     setResendingEmail(true);
     try {
       await authAPI.resendVerification(user.email);
       toast.success('Enlace de verificación enviado. Revisa tu correo.');
-    } catch {
-      toast('Si el correo está registrado, recibirás el enlace.', { icon: '📧' });
+      setResendEmailCooldown(60);
+    } catch (err) {
+      const detail = err?.response?.data?.detail || '';
+      if (detail.includes('configurado') || detail.includes('email')) {
+        toast.error('El servidor de correo no está configurado aún. Contacta al administrador.');
+      } else {
+        toast('Si el correo está registrado, recibirás el enlace.', { icon: '📧' });
+      }
     } finally {
       setResendingEmail(false);
     }
@@ -221,10 +235,14 @@ export default function Home() {
             <span>Verifica tu correo electrónico para acceder a todas las funciones.</span>
             <button
               onClick={handleResendEmail}
-              disabled={resendingEmail}
-              className="underline font-bold hover:no-underline disabled:opacity-60 ml-1"
+              disabled={resendingEmail || resendEmailCooldown > 0}
+              className="underline font-bold hover:no-underline disabled:opacity-60 disabled:no-underline ml-1"
             >
-              {resendingEmail ? 'Enviando...' : 'Reenviar enlace'}
+              {resendingEmail
+                ? 'Enviando...'
+                : resendEmailCooldown > 0
+                  ? `Reenviar en ${resendEmailCooldown}s`
+                  : 'Reenviar enlace'}
             </button>
           </div>
           <button onClick={() => setEmailBannerDismissed(true)} className="flex-shrink-0 hover:opacity-70">
