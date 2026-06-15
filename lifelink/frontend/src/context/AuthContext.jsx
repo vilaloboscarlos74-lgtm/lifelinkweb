@@ -55,11 +55,11 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-    try {
-      const meRes = await usersAPI.getMe();
-      setUser(meRes.data);
-      localStorage.setItem('user', JSON.stringify(meRes.data));
-    } catch { /* non-fatal */ }
+    // _noRedirect evita que un 401 aquí limpie la sesión que acabamos de guardar
+    usersAPI.getMe({ _noRedirect: true }).then((res) => {
+      setUser(res.data);
+      localStorage.setItem('user', JSON.stringify(res.data));
+    }).catch(() => { /* non-fatal — se usa userData del login response */ });
     return userData;
   };
 

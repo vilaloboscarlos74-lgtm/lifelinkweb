@@ -26,10 +26,11 @@ api.interceptors.request.use((config) => {
 });
 
 // Interceptor: manejar errores de auth
+// _noRedirect: true en la config de la petición evita el redirect automático (usado en _saveSession)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?._noRedirect) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -74,7 +75,7 @@ export const authAPI = {
 
 // === USERS ===
 export const usersAPI = {
-  getMe: () => api.get('/users/me'),
+  getMe: (config = {}) => api.get('/users/me', config),
   updateProfile: (data) => api.put('/users/me', data),
   changePassword: (data) => api.put('/users/me/password', data),
   deleteAccount: (data) => api.delete('/users/me', { data }),

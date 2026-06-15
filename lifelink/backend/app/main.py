@@ -256,7 +256,7 @@ async def debug_email(
         "providers_configured": providers,
         "active_provider": active[0] if active else None,
         "from_email": s.FROM_EMAIL or "(vacío)",
-        "resend_from_email": s.RESEND_FROM_EMAIL,
+        "resend_sender": "LifeLink Medical <onboarding@resend.dev>",
         "smtp_host": s.SMTP_HOST,
         "smtp_user": s.SMTP_USER or "(vacío)",
     }
