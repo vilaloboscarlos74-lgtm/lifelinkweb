@@ -21,8 +21,6 @@ import Favorites from './pages/Favorites';
 import AdminDashboard from './pages/AdminDashboard';
 import BloodDonors from './pages/BloodDonors';
 import VerifyEmail from './pages/VerifyEmail';
-import TwoFactorVerify from './pages/TwoFactorVerify';
-import TwoFactorSetup from './pages/TwoFactorSetup';
 import MeetingPoints from './pages/MeetingPoints';
 import UserPublicProfile from './pages/UserPublicProfile';
 import BloodRecord from './pages/BloodRecord';
@@ -60,7 +58,6 @@ export default function App() {
             <Route path="/donors" element={<BloodDonors />} />
             <Route path="/users/:id" element={<UserPublicProfile />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/2fa-verify" element={<TwoFactorVerify />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/puntos-encuentro" element={<MeetingPoints />} />
@@ -70,7 +67,6 @@ export default function App() {
             {/* Protegidas */}
             <Route path="/publish" element={<ProtectedRoute><CreateSupply /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/2fa-setup" element={<ProtectedRoute><TwoFactorSetup /></ProtectedRoute>} />
             <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/messages/:requestId" element={<ProtectedRoute><Messages /></ProtectedRoute>} />

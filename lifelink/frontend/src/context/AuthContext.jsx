@@ -30,10 +30,6 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const res = await authAPI.login(username, password);
-    // Si el servidor pide 2FA, devolvemos el objeto para que Login.jsx redirija
-    if (res.data.requires_2fa) {
-      return { requires_2fa: true, temp_token: res.data.temp_token, method: res.data.method };
-    }
     const { access_token, user: userData } = res.data;
     localStorage.setItem('token', access_token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -58,16 +54,6 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
-  const loginWith2FA = async (tempToken, code) => {
-    const res = await authAPI.verify2FA(tempToken, code);
-    return _saveSession(res.data.access_token, res.data.user);
-  };
-
-  const loginWithEmail2FA = async (tempToken, code) => {
-    const res = await authAPI.verifyEmail2FA(tempToken, code);
-    return _saveSession(res.data.access_token, res.data.user);
-  };
-
   const register = async (data) => {
     const res = await authAPI.register(data);
     return res.data;
@@ -85,7 +71,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWith2FA, loginWithEmail2FA, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

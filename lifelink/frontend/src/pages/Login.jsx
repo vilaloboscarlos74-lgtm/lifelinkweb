@@ -17,11 +17,6 @@ export default function Login() {
     setLoading(true);
     try {
       const result = await login(form.username, form.password);
-      // 2FA requerido — redirigir a pantalla de código
-      if (result?.requires_2fa) {
-        navigate(`/2fa-verify?temp_token=${result.temp_token}&method=${result.method || 'totp'}`);
-        return;
-      }
       toast.success(`¡Bienvenido de nuevo, ${result.full_name?.split(' ')[0]}!`);
       navigate('/');
     } catch (err) {

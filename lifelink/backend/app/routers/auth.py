@@ -135,14 +135,6 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
 
-    # Si tiene TOTP activo, emitir token temporal
-    if user.totp_enabled:
-        return {
-            "requires_2fa": True,
-            "method": "totp",
-            "temp_token": create_temp_token(user.id),
-        }
-
     token = create_access_token(data={
         "sub": str(user.id),
         "username": user.username,
