@@ -200,6 +200,7 @@ export const adminAPI = {
   deleteSupply: (id) => api.delete(`/admin/supplies/${id}`),
   setSupplyStatus: (id, status) => api.put(`/admin/supplies/${id}/status`, { status }),
   getRequests: (params) => api.get('/admin/requests', { params }),
+  getBloodDonors: (params) => api.get('/admin/blood-donors', { params }),
 };
 
 export default api;

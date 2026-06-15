@@ -4,7 +4,7 @@ import { adminAPI, getMediaUrl } from '../services/api';
 import {
   Users, Package, MessageCircle, Droplets, ToggleLeft, ToggleRight,
   Shield, BarChart2, Trash2, Search, ChevronLeft, ChevronRight,
-  Ban, RefreshCw, Eye, AlertTriangle, BadgeCheck,
+  Ban, RefreshCw, Eye, AlertTriangle, BadgeCheck, Mail,
   ClipboardList, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -555,12 +555,19 @@ function UsersTab() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge
-                          label={u.is_active ? 'Activo' : 'Inactivo'}
-                          style={u.is_active
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <Badge
+                            label={u.is_active ? 'Activo' : 'Bloqueado'}
+                            style={u.is_active
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
+                          />
+                          {!u.email_verified && (
+                            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-500 dark:text-amber-400">
+                              <Mail size={10} /> Sin verificar
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell text-xs text-gray-400">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('es-MX') : '—'}
@@ -737,6 +744,154 @@ function RequestsTab() {
 }
 
 // ── Componente principal ─────────────────────────────────────────────────────
+// ── Tab Fichas Médicas (Donantes de Sangre) ───────────────────────────────────
+const BLOOD_TYPE_COLORS = {
+  'O+':  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  'O-':  'bg-red-200 text-red-800 dark:bg-red-900/50 dark:text-red-300',
+  'A+':  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  'A-':  'bg-blue-200 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+  'B+':  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  'B-':  'bg-green-200 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+  'AB+': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  'AB-': 'bg-purple-200 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300',
+};
+
+function BloodTypeBadge({ type }) {
+  if (!type) return <span className="text-xs text-gray-400">—</span>;
+  return (
+    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${BLOOD_TYPE_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
+      {type}
+    </span>
+  );
+}
+
+function EligibilityBadge({ item }) {
+  if (!item.has_record)
+    return <Badge label="Sin ficha" style="bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400" />;
+  if (item.is_eligible)
+    return <Badge label="Puede donar" style="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" />;
+  if (item.ineligibility_type === 'permanente')
+    return <Badge label="Excl. permanente" style="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" />;
+  return <Badge label="Excl. temporal" style="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" />;
+}
+
+function BloodDonorsTab() {
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [filterBloodType, setFilterBloodType] = useState('');
+  const [filterEligibility, setFilterEligibility] = useState('');
+
+  const BLOOD_TYPES = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+
+  const load = useCallback(async (p = 1) => {
+    setLoading(true);
+    try {
+      const params = { page: p, limit: 20 };
+      if (filterBloodType) params.blood_type = filterBloodType;
+      if (filterEligibility) params.eligibility = filterEligibility;
+      const r = await adminAPI.getBloodDonors(params);
+      setItems(r.data.items || []);
+      setTotal(r.data.total || 0);
+      setPage(r.data.page || 1);
+      setPages(r.data.pages || 1);
+    } catch { toast.error('Error al cargar fichas médicas'); }
+    finally { setLoading(false); }
+  }, [filterBloodType, filterEligibility]);
+
+  useEffect(() => { load(1); }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-4 flex flex-col sm:flex-row gap-3">
+        <select value={filterBloodType} onChange={e => setFilterBloodType(e.target.value)} className="input-field text-sm sm:w-44">
+          <option value="">Todos los tipos</option>
+          {BLOOD_TYPES.map(bt => <option key={bt} value={bt}>{bt}</option>)}
+        </select>
+        <select value={filterEligibility} onChange={e => setFilterEligibility(e.target.value)} className="input-field text-sm sm:w-44">
+          <option value="">Todos</option>
+          <option value="eligible">Pueden donar</option>
+          <option value="ineligible">No pueden donar</option>
+        </select>
+        <button onClick={() => load(1)} className="btn-primary flex items-center gap-2 shrink-0">
+          <Search size={14} /> Buscar
+        </button>
+      </div>
+
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        <strong className="text-gray-800 dark:text-gray-200">{total}</strong> donantes registrados
+      </p>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/60">
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Donante</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Tipo de sangre</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Elegibilidad</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 hidden md:table-cell">Última donación</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400 hidden lg:table-cell">Donaciones</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Perfil</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-b border-gray-50 dark:border-gray-700/50">
+                      {[1,2,3,4,5,6].map(j => (
+                        <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /></td>
+                      ))}
+                    </tr>
+                  ))
+                : items.map(u => (
+                    <tr key={u.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/50 dark:hover:bg-gray-700/30">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0 overflow-hidden">
+                            {u.avatar_url
+                              ? <img src={getMediaUrl(u.avatar_url)} alt="" className="w-full h-full object-cover" />
+                              : <Droplets size={14} className="text-red-500" />
+                            }
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{u.full_name}</p>
+                            <p className="text-[11px] text-gray-400">@{u.username}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><BloodTypeBadge type={u.blood_type} /></td>
+                      <td className="px-4 py-3"><EligibilityBadge item={u} /></td>
+                      <td className="px-4 py-3 hidden md:table-cell text-xs text-gray-600 dark:text-gray-400">
+                        {u.last_donation_date ? new Date(u.last_donation_date).toLocaleDateString('es-MX') : '—'}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {u.total_donations ?? 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link to={`/users/${u.id}`}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-primary-600 transition-colors inline-flex" title="Ver perfil">
+                          <Eye size={15} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+              }
+            </tbody>
+          </table>
+          {!loading && items.length === 0 && (
+            <p className="text-center text-sm text-gray-400 dark:text-gray-500 py-10">No se encontraron donantes</p>
+          )}
+        </div>
+      </div>
+
+      <Pagination page={page} pages={pages} onChange={p => { setPage(p); load(p); }} />
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [statsError, setStatsError] = useState(false);
@@ -759,6 +914,7 @@ export default function AdminDashboard() {
     { key: 'supplies', label: 'Publicaciones',  icon: Package },
     { key: 'users',    label: 'Usuarios',       icon: Users },
     { key: 'requests', label: 'Solicitudes',    icon: ClipboardList },
+    { key: 'blood',    label: 'Fichas médicas', icon: Droplets },
   ];
 
   return (
@@ -791,7 +947,8 @@ export default function AdminDashboard() {
         : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={loadStats} />
         : tab === 'supplies' ? <SuppliesTab />
         : tab === 'users'    ? <UsersTab />
-        : <RequestsTab />
+        : tab === 'requests' ? <RequestsTab />
+        : <BloodDonorsTab />
       }
     </div>
   );

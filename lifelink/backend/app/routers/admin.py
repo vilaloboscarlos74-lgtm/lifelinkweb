@@ -260,6 +260,97 @@ def change_user_role(
     return {"role": user.role.value, "detail": f"Rol actualizado a {user.role.value}"}
 
 
+@router.get("/blood-donors")
+def list_blood_donors(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    blood_type: Optional[str] = None,
+    eligibility: Optional[str] = None,  # "eligible" | "ineligible"
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Lista donantes de sangre con elegibilidad calculada. No expone datos sensibles de enfermedades."""
+    from app.models.blood import BloodDonorRecord
+    from datetime import datetime, timezone, timedelta
+
+    q = (
+        db.query(User, BloodDonorRecord)
+        .outerjoin(BloodDonorRecord, User.id == BloodDonorRecord.user_id)
+        .filter(User.is_blood_donor == True)
+    )
+
+    if blood_type:
+        from app.models.user import BloodType as BT
+        try:
+            q = q.filter(User.blood_type == BT(blood_type))
+        except ValueError:
+            pass
+
+    rows = q.order_by(User.created_at.desc()).all()
+    now = datetime.now(timezone.utc)
+
+    def _to_utc(dt):
+        if dt is None:
+            return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+    def _is_eligible(record):
+        if record is None:
+            return True, None
+        # Exclusiones permanentes — no se expone cuál
+        if any([record.has_hiv, record.has_hepatitis_b, record.has_hepatitis_c,
+                record.has_sifilis, record.has_chagas, record.has_cancer,
+                record.has_diabetes_insulin, record.has_epilepsy]):
+            return False, "permanente"
+        # Exclusiones temporales
+        if record.is_pregnant or record.is_breastfeeding:
+            return False, "temporal"
+        if record.had_recent_tattoo or record.had_recent_piercing or record.had_recent_surgery:
+            return False, "temporal"
+        tattoo_cutoff = now - timedelta(days=365)
+        surgery_cutoff = now - timedelta(days=180)
+        if _to_utc(record.tattoo_date) and _to_utc(record.tattoo_date) > tattoo_cutoff:
+            return False, "temporal"
+        if _to_utc(record.piercing_date) and _to_utc(record.piercing_date) > tattoo_cutoff:
+            return False, "temporal"
+        if _to_utc(record.surgery_date) and _to_utc(record.surgery_date) > surgery_cutoff:
+            return False, "temporal"
+        ld = _to_utc(record.last_donation_date)
+        if ld and (now - ld).days < 60:
+            return False, "temporal"
+        return True, None
+
+    items = []
+    for user, record in rows:
+        eligible, ineligibility_type = _is_eligible(record)
+        if eligibility == "eligible" and not eligible:
+            continue
+        if eligibility == "ineligible" and eligible:
+            continue
+        items.append({
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name,
+            "email": user.email,
+            "avatar_url": user.avatar_url,
+            "blood_type": user.blood_type.value if user.blood_type else None,
+            "total_donations": record.total_donations if record else 0,
+            "last_donation_date": _to_utc(record.last_donation_date).isoformat() if record and record.last_donation_date else None,
+            "is_eligible": eligible,
+            "ineligibility_type": ineligibility_type,
+            "has_record": record is not None,
+        })
+
+    total = len(items)
+    start = (page - 1) * limit
+    return {
+        "items": items[start:start + limit],
+        "total": total,
+        "page": page,
+        "pages": math.ceil(total / limit) if total > 0 else 1,
+    }
+
+
 class RequestPage(BaseModel):
     items: List[RequestResponse]
     total: int

@@ -75,6 +75,7 @@ class UserResponse(UserBase):
     state: Optional[str] = None
     blood_type: Optional[BloodType] = None
     is_blood_donor: bool = False
+    is_active: bool = True
     is_verified: bool = False
     email_verified: bool = False
     totp_enabled: bool = False
@@ -82,7 +83,7 @@ class UserResponse(UserBase):
     created_at: Optional[datetime] = None
 
     # Guard against NULL in DB columns that have Python-side defaults only
-    @field_validator('is_blood_donor', 'is_verified', 'email_verified', 'totp_enabled', mode='before')
+    @field_validator('is_blood_donor', 'is_active', 'is_verified', 'email_verified', 'totp_enabled', mode='before')
     @classmethod
     def coerce_bool(cls, v):
         return bool(v) if v is not None else False
