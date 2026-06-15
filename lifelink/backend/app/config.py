@@ -46,8 +46,6 @@ class Settings(BaseSettings):
 
     # Email via Resend (respaldo)
     RESEND_API_KEY: str = ""
-    # Remitente para Resend — usa onboarding@resend.dev si no tienes dominio verificado
-    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
 
     # Twilio SMS (2FA por SMS)
     TWILIO_ACCOUNT_SID: str = ""

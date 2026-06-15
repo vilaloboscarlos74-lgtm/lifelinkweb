@@ -83,9 +83,9 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             if not (settings.RESEND_API_KEY or (settings.SMTP_USER and settings.SMTP_PASSWORD)):
                 raise
 
-    # Resend — usa RESEND_FROM_EMAIL (por defecto onboarding@resend.dev, no requiere dominio propio)
+    # Resend — siempre usa onboarding@resend.dev como remitente (sin verificar dominio propio)
     if settings.RESEND_API_KEY:
-        resend_from = f"{from_name} <{settings.RESEND_FROM_EMAIL}>"
+        resend_from = f"{from_name} <onboarding@resend.dev>"
         try:
             resp = await asyncio.to_thread(
                 lambda: requests.post(
