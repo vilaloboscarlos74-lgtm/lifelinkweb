@@ -459,9 +459,19 @@ function UsersTab() {
   const toggleVerified = async (id) => {
     try {
       const res = await adminAPI.toggleUserVerified(id);
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, is_verified: res.data.is_verified } : u));
+      setUsers(prev => prev.map(u => u.id === id
+        ? { ...u, is_verified: res.data.is_verified, email_verified: res.data.email_verified ?? u.email_verified }
+        : u));
       toast.success(res.data.detail);
     } catch { toast.error('Error al actualizar verificación'); }
+  };
+
+  const verifyEmail = async (id) => {
+    try {
+      const res = await adminAPI.verifyUserEmail(id);
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, email_verified: true } : u));
+      toast.success(res.data.detail);
+    } catch { toast.error('Error al verificar email'); }
   };
 
   const applyRoleChange = async () => {
@@ -563,9 +573,12 @@ function UsersTab() {
                               : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
                           />
                           {!u.email_verified && (
-                            <span className="flex items-center gap-1 text-[10px] font-medium text-amber-500 dark:text-amber-400">
+                            <button
+                              onClick={() => verifyEmail(u.id)}
+                              className="flex items-center gap-1 text-[10px] font-medium text-amber-500 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+                              title="Marcar email como verificado">
                               <Mail size={10} /> Sin verificar
-                            </span>
+                            </button>
                           )}
                         </div>
                       </td>

@@ -235,8 +235,32 @@ def toggle_user_verified(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     user.is_verified = not user.is_verified
+    if user.is_verified:
+        user.email_verified = True
+        user.email_verification_token = None
+        user.email_verification_expires = None
     db.commit()
-    return {"is_verified": user.is_verified, "detail": f"Usuario {'verificado' if user.is_verified else 'desverificado'}"}
+    return {
+        "is_verified": user.is_verified,
+        "email_verified": user.email_verified,
+        "detail": f"Usuario {'verificado' if user.is_verified else 'desverificado'}",
+    }
+
+
+@router.put("/users/{user_id}/verify-email")
+def admin_verify_email(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    user.email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires = None
+    db.commit()
+    return {"email_verified": True, "detail": "Email verificado manualmente"}
 
 
 @router.put("/users/{user_id}/role")

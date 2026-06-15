@@ -232,7 +232,7 @@ export default function Home() {
         <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Mail size={15} className="flex-shrink-0" />
-            <span>Verifica tu correo electrónico para acceder a todas las funciones.</span>
+            <span>Verifica tu correo electrónico para mayor seguridad de tu cuenta.</span>
             <button
               onClick={handleResendEmail}
               disabled={resendingEmail || resendEmailCooldown > 0}
