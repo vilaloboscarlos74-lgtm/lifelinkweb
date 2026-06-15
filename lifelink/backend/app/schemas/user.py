@@ -51,10 +51,10 @@ class UserPublic(BaseModel):
     is_blood_donor: bool = False
     rating_avg: float = 0.0
     is_verified: bool = False
-    email_2fa_enabled: bool = False
+    totp_enabled: bool = False
     contact_supply_id: Optional[int] = None  # populated by /donors/blood only
 
-    @field_validator('is_blood_donor', 'is_verified', 'email_2fa_enabled', mode='before')
+    @field_validator('is_blood_donor', 'is_verified', 'totp_enabled', mode='before')
     @classmethod
     def coerce_bool(cls, v):
         return bool(v) if v is not None else False

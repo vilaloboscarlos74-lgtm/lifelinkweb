@@ -135,42 +135,11 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
 
-    # Si tiene 2FA activo, emitir token temporal
+    # Si tiene TOTP activo, emitir token temporal
     if user.totp_enabled:
         return {
             "requires_2fa": True,
             "method": "totp",
-            "temp_token": create_temp_token(user.id),
-        }
-
-    if user.sms_2fa_enabled:
-        if not user.phone:
-            raise HTTPException(status_code=400, detail="No hay número de teléfono registrado para SMS 2FA")
-        otp = generate_otp()
-        user.sms_otp = otp
-        user.sms_otp_expires = get_otp_expiry()
-        db.commit()
-        send_sms_otp(user.phone, otp)
-        return {
-            "requires_2fa": True,
-            "method": "sms",
-            "temp_token": create_temp_token(user.id),
-        }
-
-    if user.email_2fa_enabled:
-        otp = generate_otp()
-        user.email_otp = otp
-        user.email_otp_expires = get_otp_expiry()
-        db.commit()
-        sent = await send_otp_email(user.email, user.username, otp)
-        if not sent:
-            raise HTTPException(
-                status_code=503,
-                detail="No se pudo enviar el código por correo. Contacta al administrador."
-            )
-        return {
-            "requires_2fa": True,
-            "method": "email",
             "temp_token": create_temp_token(user.id),
         }
 

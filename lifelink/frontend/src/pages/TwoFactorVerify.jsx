@@ -1,30 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../services/api';
-import { Shield, Mail, Loader, ChevronLeft, RefreshCw } from 'lucide-react';
+import { Shield, Loader, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TwoFactorVerify() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const tempToken = params.get('temp_token');
-  const method = params.get('method') || 'totp';   // 'totp' | 'email' | 'sms'
-  const { loginWith2FA, loginWithEmail2FA } = useAuth();
+  const { loginWith2FA } = useAuth();
 
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const inputRefs = useRef([]);
   const code = digits.join('');
-
-  // Cuenta regresiva para reenvío
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [countdown]);
 
   const handleChange = (i, val) => {
     if (!/^\d?$/.test(val)) return;
@@ -55,11 +44,7 @@ export default function TwoFactorVerify() {
 
     setLoading(true);
     try {
-      if (method === 'email') {
-        await loginWithEmail2FA(tempToken, code);
-      } else {
-        await loginWith2FA(tempToken, code);
-      }
+      await loginWith2FA(tempToken, code);
       toast.success('¡Bienvenido de nuevo!');
       navigate('/');
     } catch (err) {
@@ -71,30 +56,10 @@ export default function TwoFactorVerify() {
     }
   };
 
-  const resendCode = async () => {
-    if (!tempToken || resending || countdown > 0) return;
-    setResending(true);
-    try {
-      if (method === 'email') {
-        await authAPI.sendEmail2FA(tempToken);
-      } else {
-        await authAPI.sms_2fa_send?.({ temp_token: tempToken });
-      }
-      toast.success('Código reenviado a tu correo');
-      setCountdown(60);
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al reenviar');
-    } finally {
-      setResending(false);
-    }
-  };
-
   // Auto-submit al completar los 6 dígitos
   useEffect(() => {
     if (code.length === 6 && !loading) handleSubmit();
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isEmail = method === 'email';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-primary-50 flex items-center justify-center px-4 py-10 -mx-4 sm:-mx-6">
@@ -102,26 +67,14 @@ export default function TwoFactorVerify() {
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 text-center">
 
           {/* Icono */}
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${
-            isEmail
-              ? 'bg-gradient-to-br from-blue-100 to-primary-100'
-              : 'bg-gradient-to-br from-primary-100 to-medical-100'
-          }`}>
-            {isEmail
-              ? <Mail size={30} className="text-primary-700" />
-              : <Shield size={30} className="text-primary-700" />
-            }
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 bg-gradient-to-br from-primary-100 to-medical-100">
+            <Shield size={30} className="text-primary-700" />
           </div>
 
-          <h1 className="text-2xl font-black text-gray-900 mb-1.5">
-            {isEmail ? 'Código por correo' : 'Verificación 2FA'}
-          </h1>
+          <h1 className="text-2xl font-black text-gray-900 mb-1.5">Verificación 2FA</h1>
 
           <p className="text-gray-500 text-sm leading-relaxed mb-8">
-            {isEmail
-              ? 'Te enviamos un código de 6 dígitos a tu correo electrónico. Revisa también la carpeta de spam.'
-              : 'Abre tu app autenticadora (Google Authenticator, Authy) e ingresa el código de 6 dígitos.'
-            }
+            Abre tu app autenticadora (Google Authenticator, Authy) e ingresa el código de 6 dígitos.
           </p>
 
           {/* Inputs del código */}
@@ -158,22 +111,6 @@ export default function TwoFactorVerify() {
               }
             </button>
           </form>
-
-          {/* Botón reenviar (solo para email) */}
-          {isEmail && (
-            <button
-              onClick={resendCode}
-              disabled={resending || countdown > 0}
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed mb-4"
-            >
-              {resending
-                ? <><Loader size={14} className="animate-spin" /> Enviando...</>
-                : countdown > 0
-                ? <><RefreshCw size={14} /> Reenviar en {countdown}s</>
-                : <><RefreshCw size={14} /> Reenviar código</>
-              }
-            </button>
-          )}
 
           <p className="text-sm text-gray-400">
             <Link to="/login" className="inline-flex items-center gap-1 text-primary-600 font-semibold hover:underline">
