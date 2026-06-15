@@ -9,10 +9,11 @@ from app.utils.dependencies import get_current_user
 from app.utils.security import verify_password, hash_password
 from app.config import get_settings
 from app.utils.cloudinary_service import upload_image, delete_image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
 settings = get_settings()
@@ -176,6 +177,15 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
 
+    @field_validator('new_password')
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if not any(c.isupper() for c in v):
+            raise ValueError('La contraseña debe tener al menos una mayúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe tener al menos un número')
+        return v
+
 
 @router.put("/me/password", status_code=200)
 def change_password(
@@ -212,7 +222,7 @@ def export_my_data(
     blood_record = db.query(BloodDonorRecord).filter(BloodDonorRecord.user_id == current_user.id).first()
 
     return {
-        "exported_at": __import__("datetime").datetime.utcnow().isoformat(),
+        "exported_at": datetime.now(timezone.utc).isoformat(),
         "account": {
             "id": current_user.id,
             "email": current_user.email,

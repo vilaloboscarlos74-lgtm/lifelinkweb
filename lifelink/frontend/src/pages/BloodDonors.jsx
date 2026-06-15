@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { usersAPI, suppliesAPI, getMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { ALCALDIAS_CDMX, MUNICIPIOS_EDOMEX } from '../constants/ubicaciones';
 import {
   Droplets, Search, MapPin, Star, Shield, User,
   AlertCircle, ChevronDown, ClipboardList, Plus, X,
@@ -381,12 +382,24 @@ export default function BloodDonors() {
                 )}
               </div>
               <div className="flex-1">
-                <label className="label-field">Ciudad</label>
-                <div className="relative">
-                  <MapPin size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={city} onChange={e => setCity(e.target.value)}
-                    placeholder="Ej: Guadalajara" className="input-field pl-9 text-sm" />
-                </div>
+                <label className="label-field">Alcaldía / Municipio</label>
+                <select
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="input-field text-sm"
+                >
+                  <option value="">Todas las zonas</option>
+                  <optgroup label="── Ciudad de México ──">
+                    {ALCALDIAS_CDMX.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="── Estado de México ──">
+                    {MUNICIPIOS_EDOMEX.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
               <div className="sm:self-end flex gap-2">
                 {myBloodType && (

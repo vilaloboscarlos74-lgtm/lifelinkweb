@@ -111,7 +111,7 @@ app = FastAPI(
     donaciones y solicitudes de apoyo médico.
 
     Características:
-    - Autenticación JWT con 2FA TOTP
+    - Autenticación JWT con 2FA por email
     - Verificación de correo electrónico
     - Rate limiting (protección contra fuerza bruta)
     - Gestión de usuarios
@@ -154,7 +154,24 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+# Ensure CORS headers are present even on unhandled exceptions
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in origins or "*" in origins:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    logger.error(f"Unhandled exception on {request.method} {request.url}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Error interno del servidor"},
+        headers=headers,
+    )
 
 
 # ==========================================
@@ -213,6 +230,52 @@ def public_stats(db=None):
         }
     finally:
         db.close()
+
+
+# ==========================================
+# EMAIL DIAGNOSIS (admin only)
+# ==========================================
+@app.get("/api/debug/email")
+async def debug_email(
+    send_test: bool = False,
+    admin: User = Depends(get_current_admin),
+):
+    """Muestra qué proveedores de email están configurados y permite enviar un correo de prueba."""
+    from app.config import get_settings as _gs
+    s = _gs()
+
+    providers = {
+        "sendgrid": bool(s.SENDGRID_API_KEY),
+        "resend": bool(s.RESEND_API_KEY),
+        "smtp": bool(s.SMTP_USER and s.SMTP_PASSWORD),
+    }
+    active = [k for k, v in providers.items() if v]
+    config_info = {
+        "providers_configured": providers,
+        "active_provider": active[0] if active else None,
+        "from_email": s.FROM_EMAIL or "(vacío)",
+        "resend_from_email": s.RESEND_FROM_EMAIL,
+        "smtp_host": s.SMTP_HOST,
+        "smtp_user": s.SMTP_USER or "(vacío)",
+    }
+
+    if not active:
+        return {**config_info, "status": "ERROR — ningún proveedor configurado"}
+
+    test_result = None
+    if send_test:
+        from app.utils.email import send_email
+        try:
+            await send_email(
+                admin.email,
+                "LifeLink — Prueba de email",
+                "<h2>✅ Email de prueba</h2><p>Si ves esto, el email funciona correctamente.</p>",
+            )
+            test_result = f"OK — email de prueba enviado a {admin.email}"
+        except Exception as e:
+            test_result = f"ERROR — {e}"
+
+    return {**config_info, "test_result": test_result}
 
 
 # ==========================================

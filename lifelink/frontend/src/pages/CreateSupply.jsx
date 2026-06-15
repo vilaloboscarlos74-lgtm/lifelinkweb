@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
 import { MEETING_POINTS, TYPE_CONFIG as POINT_TYPE_CONFIG } from '../data/meetingPoints';
+import UbicacionSelect from '../components/UbicacionSelect';
 import {
   Plus, Upload, X, AlertTriangle, ChevronRight, ChevronLeft,
   Package, Tag, MapPin, ImagePlus, CheckCircle2, DollarSign,
@@ -226,7 +227,8 @@ export default function CreateSupply() {
   /* ── Selección de punto de encuentro ── */
   const handleSelectPoint = useCallback((point) => {
     setSelectedPoint(point);
-    setForm((p) => ({ ...p, city: point.name, state: getPointState(point) }));
+    // Pre-selecciona el estado pero deja que el usuario elija la alcaldía/municipio
+    setForm((p) => ({ ...p, state: getPointState(point), city: '' }));
   }, []);
 
   const clearPoint = () => {
@@ -716,6 +718,23 @@ export default function CreateSupply() {
             </Suspense>
           </div>
         )}
+      </div>
+
+      {/* ── Zona de entrega ── */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <MapPin size={16} className="text-primary-600" />
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">Zona de entrega</span>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          Selecciona la alcaldía o municipio donde se ubica el insumo.
+        </p>
+        <UbicacionSelect
+          estado={form.state}
+          ciudad={form.city}
+          onEstadoChange={(v) => setForm((p) => ({ ...p, state: v, city: '' }))}
+          onCiudadChange={(v) => setForm((p) => ({ ...p, city: v }))}
+        />
       </div>
 
       {/* ── Detalles del producto ── */}

@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { usersAPI, reviewsAPI, authAPI, getMediaUrl } from '../services/api';
 import BadgeList from '../components/BadgeList';
+import UbicacionSelect from '../components/UbicacionSelect';
 import {
   Save, Camera, User, MapPin, Droplets,
   Sun, Moon, Monitor, CheckCircle2, AlertCircle, Star, MessageSquare,
@@ -11,15 +12,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const MEXICO_STATES = [
-  'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
-  'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila de Zaragoza',
-  'Colima', 'Durango', 'Guanajuato', 'Guerrero', 'Hidalgo', 'Jalisco',
-  'Estado de México', 'Michoacán de Ocampo', 'Morelos', 'Nayarit',
-  'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo',
-  'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas',
-  'Tlaxcala', 'Veracruz de Ignacio de la Llave', 'Yucatán', 'Zacatecas',
-];
 
 const BIO_MAX = 500;
 
@@ -407,21 +399,15 @@ export default function Profile() {
           <h3 className={`${headingCls} mb-4`}>
             <MapPin size={15} className="text-primary-600" /> Ubicación
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Ciudad</label>
-              <input type="text" className="input-field" value={form.city} onChange={set('city')} placeholder="Ej. Guadalajara" />
-            </div>
-            <div>
-              <label className={labelCls}>Estado</label>
-              <select className="input-field" value={form.state} onChange={set('state')}>
-                <option value="">Seleccionar estado</option>
-                {MEXICO_STATES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500 -mt-2 mb-4">
+            Solo CDMX y Estado de México — selecciona tu alcaldía o municipio.
+          </p>
+          <UbicacionSelect
+            estado={form.state}
+            ciudad={form.city}
+            onEstadoChange={(v) => setForm((f) => ({ ...f, state: v, city: '' }))}
+            onCiudadChange={(v) => setForm((f) => ({ ...f, city: v }))}
+          />
         </div>
 
         {/* Blood donation */}

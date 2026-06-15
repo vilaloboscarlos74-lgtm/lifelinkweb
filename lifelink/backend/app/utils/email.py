@@ -83,8 +83,9 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             if not (settings.RESEND_API_KEY or (settings.SMTP_USER and settings.SMTP_PASSWORD)):
                 raise
 
-    # Resend como respaldo
+    # Resend — usa RESEND_FROM_EMAIL (por defecto onboarding@resend.dev, no requiere dominio propio)
     if settings.RESEND_API_KEY:
+        resend_from = f"{from_name} <{settings.RESEND_FROM_EMAIL}>"
         try:
             resp = await asyncio.to_thread(
                 lambda: requests.post(
@@ -94,7 +95,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "from": f"{from_name} <{from_addr or 'onboarding@resend.dev'}>",
+                        "from": resend_from,
                         "to": [to],
                         "subject": subject,
                         "html": html,
@@ -103,8 +104,8 @@ async def send_email(to: str, subject: str, html: str) -> bool:
                 )
             )
             if resp.status_code >= 400:
-                raise Exception(f"HTTP {resp.status_code}: {resp.text}")
-            logger.info(f"EMAIL RESEND OK: enviado a {to}")
+                raise Exception(f"Resend HTTP {resp.status_code}: {resp.text[:300]}")
+            logger.info(f"EMAIL RESEND OK: enviado a {to} desde {resend_from}")
             return True
         except Exception as e:
             logger.error(f"EMAIL RESEND ERROR enviando a {to}: {e}")
@@ -121,8 +122,10 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             logger.error(f"EMAIL SMTP ERROR enviando a {to}: {e}")
             raise
 
-    logger.warning("EMAIL SKIP: no hay SENDGRID_API_KEY, RESEND_API_KEY ni SMTP_USER configurados")
-    return False
+    raise RuntimeError(
+        "No hay proveedor de email configurado. "
+        "Configura SENDGRID_API_KEY, RESEND_API_KEY o SMTP_USER+SMTP_PASSWORD en Railway."
+    )
 
 
 async def send_verification_email(to_email: str, username: str, token: str) -> None:

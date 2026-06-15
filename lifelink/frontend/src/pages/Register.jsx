@@ -54,12 +54,23 @@ export default function Register() {
 
     try {
       await register(form);
-      // Auto-login con las mismas credenciales
-      await login(form.username, form.password);
-      toast.success('¡Bienvenido a LifeLink!');
-      navigate('/');
     } catch (err) {
-      // Si el auto-login falla (ej. verificación de email requerida), ir al login
+      toast.error(err.response?.data?.detail || 'Error al crear la cuenta');
+      setLoading(false);
+      return;
+    }
+
+    // Registro exitoso — auto-login
+    try {
+      const result = await login(form.username, form.password);
+      if (result?.requires_2fa) {
+        toast.success('Cuenta creada. Inicia sesión para continuar.');
+        navigate('/login');
+      } else {
+        toast.success('¡Bienvenido a LifeLink!');
+        navigate('/');
+      }
+    } catch {
       toast.success('Cuenta creada. Inicia sesión para continuar.');
       navigate('/login');
     } finally {
@@ -244,7 +255,7 @@ export default function Register() {
                   <input
                     type={showPass ? 'text' : 'password'}
                     className="input-field pr-12"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="8+ caracteres, 1 mayúscula, 1 número"
                     value={form.password}
                     onChange={set('password')}
                   />

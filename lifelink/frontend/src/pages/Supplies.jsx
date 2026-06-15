@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { suppliesAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import SupplyCard from '../components/SupplyCard';
+import { ALCALDIAS_CDMX, MUNICIPIOS_EDOMEX } from '../constants/ubicaciones';
 import {
   Search, SlidersHorizontal, X, Map, LayoutGrid,
   ChevronLeft, ChevronRight, Train,
@@ -194,12 +195,24 @@ export default function Supplies() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Ciudad</label>
-              <form onSubmit={(e) => { e.preventDefault(); setFilter('city', e.target.city.value); }}>
-                <input name="city" type="text" className="input-field text-sm" placeholder="Ej: CDMX"
-                  defaultValue={urlFilters.city}
-                  onBlur={(e) => setFilter('city', e.target.value)} />
-              </form>
+              <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Alcaldía / Municipio</label>
+              <select
+                className="input-field text-sm"
+                value={urlFilters.city || ''}
+                onChange={(e) => setFilter('city', e.target.value)}
+              >
+                <option value="">Todas las zonas</option>
+                <optgroup label="── Ciudad de México ──">
+                  {ALCALDIAS_CDMX.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="── Estado de México ──">
+                  {MUNICIPIOS_EDOMEX.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 block">Condición</label>

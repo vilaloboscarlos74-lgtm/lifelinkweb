@@ -1,5 +1,4 @@
 import logging
-import random
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -62,7 +61,7 @@ def _make_user_payload(user: User) -> dict:
 
 
 def _generate_otp(user: User, db) -> str:
-    otp = f"{random.randint(0, 999999):06d}"
+    otp = f"{secrets.randbelow(1_000_000):06d}"
     user.email_otp = otp
     user.email_otp_expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     db.commit()
@@ -166,6 +165,10 @@ async def login(
             await send_otp_email(user.email, user.username, otp)
         except Exception as e:
             logger.error(f"Error enviando OTP a {user.email}: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="No se pudo enviar el código de verificación. Verifica la configuración de email o intenta más tarde.",
+            )
         temp_token = create_temp_token(user.id)
         return {
             "requires_2fa": True,
@@ -335,7 +338,7 @@ async def resend_2fa_otp(
         await send_otp_email(user.email, user.username, otp)
     except Exception as e:
         logger.error(f"Error reenviando OTP a {user.email}: {e}")
-        raise HTTPException(status_code=500, detail="No se pudo reenviar el código. Intenta de nuevo.")
+        raise HTTPException(status_code=503, detail="No se pudo reenviar el código. Intenta de nuevo.")
     return {"message": "Código reenviado correctamente"}
 
 
@@ -355,7 +358,7 @@ async def enable_2fa_send_otp(
         await send_otp_email(current_user.email, current_user.username, otp)
     except Exception as e:
         logger.error(f"Error enviando OTP de activación a {current_user.email}: {e}")
-        raise HTTPException(status_code=500, detail="No se pudo enviar el código. Intenta de nuevo.")
+        raise HTTPException(status_code=503, detail="No se pudo enviar el código. Verifica la configuración del servicio de email.")
     return {"message": "Código enviado a tu correo. Tienes 10 minutos para confirmarlo."}
 
 

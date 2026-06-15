@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { alertsAPI } from '../services/api';
+import { ALCALDIAS_CDMX, MUNICIPIOS_EDOMEX } from '../constants/ubicaciones';
 import { Bell, Plus, Trash2, ToggleLeft, ToggleRight, Search, MapPin, Tag, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -129,11 +130,24 @@ export default function MyAlerts() {
                 className="input-field text-sm" />
             </div>
             <div>
-              <label className="label-field flex items-center gap-1"><MapPin size={12} /> Ciudad</label>
-              <input type="text" value={form.city}
-                onChange={e => set('city', e.target.value)}
-                placeholder="Ej: Guadalajara"
-                className="input-field text-sm" />
+              <label className="label-field flex items-center gap-1"><MapPin size={12} /> Alcaldía / Municipio</label>
+              <select
+                value={form.city}
+                onChange={(e) => set('city', e.target.value)}
+                className="input-field text-sm"
+              >
+                <option value="">Cualquier zona</option>
+                <optgroup label="── Ciudad de México ──">
+                  {ALCALDIAS_CDMX.map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="── Estado de México ──">
+                  {MUNICIPIOS_EDOMEX.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
             <div>
               <label className="label-field flex items-center gap-1"><Tag size={12} /> Categoría</label>
