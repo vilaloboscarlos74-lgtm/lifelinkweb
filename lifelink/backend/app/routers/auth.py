@@ -171,22 +171,12 @@ async def login(
             "temp_token": create_temp_token(user.id),
         }
 
-    # Sin otro 2FA configurado → siempre requerir verificación por correo
-    otp = generate_otp()
-    user.email_otp = otp
-    user.email_otp_expires = get_otp_expiry()
-    db.commit()
-    sent = await send_otp_email(user.email, user.username, otp)
-    if not sent:
-        raise HTTPException(
-            status_code=503,
-            detail="No se pudo enviar el código de verificación. Contacta al administrador.",
-        )
-    return {
-        "requires_2fa": True,
-        "method": "email",
-        "temp_token": create_temp_token(user.id),
-    }
+    token = create_access_token(data={
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+    return {"access_token": token, "token_type": "bearer", "user": _make_user_payload(user)}
 
 
 # ── VERIFICACIÓN DE EMAIL ─────────────────────────────────────────────────────
@@ -483,6 +473,8 @@ async def email_2fa_send(request: Request, payload: dict, db: Session = Depends(
         raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
 
     user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Email 2FA no configurado para este usuario")
 
     otp = generate_otp()
     user.email_otp = otp
@@ -506,6 +498,8 @@ async def email_2fa_verify(request: Request, payload: dict, db: Session = Depend
         raise HTTPException(status_code=401, detail="Token temporal inválido o expirado")
 
     user = _get_user_or_404(int(decoded["sub"]), db)
+    if not user.email_2fa_enabled:
+        raise HTTPException(status_code=400, detail="Email 2FA no configurado para este usuario")
 
     if not user.email_otp or not user.email_otp_expires:
         raise HTTPException(status_code=400, detail="No hay código pendiente. Usa /2fa/email/send para solicitar uno")
