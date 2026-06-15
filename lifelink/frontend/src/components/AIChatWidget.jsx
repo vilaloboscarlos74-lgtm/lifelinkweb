@@ -130,7 +130,7 @@ export default function AIChatWidget() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm leading-tight">Asistente LifeLink</p>
-              <p className="text-[11px] text-blue-100">Powered by Claude AI</p>
+              <p className="text-[11px] text-blue-100">Powered by Gemini</p>
             </div>
             <button
               onClick={() => setOpen(false)}
