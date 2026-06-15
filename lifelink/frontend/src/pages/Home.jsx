@@ -1,12 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { suppliesAPI, authAPI, statsAPI, getMediaUrl } from '../services/api';
+import { suppliesAPI, statsAPI, getMediaUrl } from '../services/api';
 import { MEETING_POINTS } from '../data/meetingPoints';
 import {
   Search, ArrowRight, Heart, Shield, Users, Droplets,
   MapPin, Package, HandHeart, CheckCircle, ChevronRight,
-  Zap, Eye, Clock, AlertTriangle, Train, X, Mail,
+  Zap, Eye, Clock, AlertTriangle, Train,
   Bone, Dumbbell, Stethoscope, Accessibility, BedDouble, Syringe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -173,16 +173,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showMap, setShowMap] = useState(false);
   const [showMeetingMap, setShowMeetingMap] = useState(false);
-  const [emailBannerDismissed, setEmailBannerDismissed] = useState(false);
-  const [resendingEmail, setResendingEmail] = useState(false);
-  const [resendEmailCooldown, setResendEmailCooldown] = useState(0);
-
-  useEffect(() => {
-    if (resendEmailCooldown <= 0) return;
-    const t = setTimeout(() => setResendEmailCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendEmailCooldown]);
-
   useEffect(() => {
     const fetchData = async () => {
       const [recentRes, urgentRes, mapRes, statsRes] = await Promise.allSettled([
@@ -205,51 +195,9 @@ export default function Home() {
     else navigate('/supplies');
   };
 
-  const handleResendEmail = async () => {
-    if (resendingEmail || resendEmailCooldown > 0) return;
-    setResendingEmail(true);
-    try {
-      await authAPI.resendVerification(user.email);
-      toast.success('Enlace de verificación enviado. Revisa tu correo.');
-      setResendEmailCooldown(60);
-    } catch (err) {
-      const detail = err?.response?.data?.detail || '';
-      if (detail.includes('configurado') || detail.includes('email')) {
-        toast.error('El servidor de correo no está configurado aún. Contacta al administrador.');
-      } else {
-        toast('Si el correo está registrado, recibirás el enlace.', { icon: '📧' });
-      }
-    } finally {
-      setResendingEmail(false);
-    }
-  };
-
   return (
     <div className="-mx-4 sm:-mx-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
 
-      {/* ── BANNER: VERIFICAR EMAIL ── */}
-      {user && !user.email_verified && !emailBannerDismissed && (
-        <div className="bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Mail size={15} className="flex-shrink-0" />
-            <span>Verifica tu correo electrónico para mayor seguridad de tu cuenta.</span>
-            <button
-              onClick={handleResendEmail}
-              disabled={resendingEmail || resendEmailCooldown > 0}
-              className="underline font-bold hover:no-underline disabled:opacity-60 disabled:no-underline ml-1"
-            >
-              {resendingEmail
-                ? 'Enviando...'
-                : resendEmailCooldown > 0
-                  ? `Reenviar en ${resendEmailCooldown}s`
-                  : 'Reenviar enlace'}
-            </button>
-          </div>
-          <button onClick={() => setEmailBannerDismissed(true)} className="flex-shrink-0 hover:opacity-70">
-            <X size={16} />
-          </button>
-        </div>
-      )}
 
       {/* ── ANNOUNCEMENT BAR ── */}
       <div className="bg-primary-900 text-primary-200 text-center py-2 text-xs font-medium tracking-wide">
