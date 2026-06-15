@@ -107,7 +107,10 @@ async def register(request: Request, user: UserCreate, db: Session = Depends(get
         db.rollback()
         raise HTTPException(status_code=400, detail="Error al crear usuario")
 
-    await send_verification_email(email, db_user.username, token)
+    try:
+        await send_verification_email(email, db_user.username, token)
+    except Exception as e:
+        logger.error(f"No se pudo enviar email de verificación a {email}: {e}")
     return db_user
 
 
@@ -406,11 +409,13 @@ async def email_2fa_setup(
     current_user.email_otp = otp
     current_user.email_otp_expires = get_otp_expiry()
     db.commit()
-    sent = await send_otp_email(current_user.email, current_user.username, otp)
-    if not sent:
+    try:
+        await send_otp_email(current_user.email, current_user.username, otp)
+    except Exception as e:
+        logger.error(f"Error enviando OTP a {current_user.email}: {e}")
         raise HTTPException(
             status_code=503,
-            detail="El servicio de correo no está configurado. Contacta al administrador."
+            detail=f"No se pudo enviar el código: {str(e)[:120]}"
         )
     return {"message": f"Código enviado a {current_user.email}"}
 
