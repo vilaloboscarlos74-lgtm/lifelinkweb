@@ -41,7 +41,10 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = ""
     FROM_NAME: str = "LifeLink Medical"
 
-    # Email via Resend (alternativa a SMTP)
+    # Email via SendGrid (proveedor principal)
+    SENDGRID_API_KEY: str = ""
+
+    # Email via Resend (respaldo)
     RESEND_API_KEY: str = ""
 
     # Twilio SMS (2FA por SMS)

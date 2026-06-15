@@ -49,11 +49,40 @@ async def send_email(to: str, subject: str, html: str) -> bool:
     from app.config import get_settings
     settings = get_settings()
 
-    # Resend primero (via REST API directa — evita incompatibilidades del SDK)
+    from_addr = settings.FROM_EMAIL or ""
+    from_name = settings.FROM_NAME or "LifeLink Medical"
+
+    # SendGrid primero
+    if settings.SENDGRID_API_KEY:
+        try:
+            resp = await asyncio.to_thread(
+                lambda: requests.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "personalizations": [{"to": [{"email": to}]}],
+                        "from": {"email": from_addr, "name": from_name},
+                        "subject": subject,
+                        "content": [{"type": "text/html", "value": html}],
+                    },
+                    timeout=15,
+                )
+            )
+            if resp.status_code >= 400:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text}")
+            logger.info(f"EMAIL SENDGRID OK: enviado a {to}")
+            return True
+        except Exception as e:
+            logger.error(f"EMAIL SENDGRID ERROR enviando a {to}: {e}")
+            if not (settings.RESEND_API_KEY or (settings.SMTP_USER and settings.SMTP_PASSWORD)):
+                raise
+
+    # Resend como respaldo
     if settings.RESEND_API_KEY:
         try:
-            from_addr = settings.FROM_EMAIL or "onboarding@resend.dev"
-            from_name = settings.FROM_NAME or "LifeLink Medical"
             resp = await asyncio.to_thread(
                 lambda: requests.post(
                     "https://api.resend.com/emails",
@@ -62,7 +91,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "from": f"{from_name} <{from_addr}>",
+                        "from": f"{from_name} <{from_addr or 'onboarding@resend.dev'}>",
                         "to": [to],
                         "subject": subject,
                         "html": html,
@@ -79,7 +108,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             if not (settings.SMTP_USER and settings.SMTP_PASSWORD):
                 raise
 
-    # Respaldo: SMTP
+    # SMTP como último respaldo
     if settings.SMTP_USER and settings.SMTP_PASSWORD:
         try:
             await asyncio.to_thread(_send_smtp, to, subject, html, settings)
@@ -89,7 +118,7 @@ async def send_email(to: str, subject: str, html: str) -> bool:
             logger.error(f"EMAIL SMTP ERROR enviando a {to}: {e}")
             raise
 
-    logger.warning("EMAIL SKIP: no hay RESEND_API_KEY ni SMTP_USER configurados")
+    logger.warning("EMAIL SKIP: no hay SENDGRID_API_KEY, RESEND_API_KEY ni SMTP_USER configurados")
     return False
 
 

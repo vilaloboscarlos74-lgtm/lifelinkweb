@@ -5,7 +5,7 @@ import BadgeList from '../components/BadgeList';
 import { useAuth } from '../context/AuthContext';
 import {
   MapPin, Star, Droplets, Package,
-  ArrowLeft, User, Clock, AlertTriangle, Eye, Heart, CheckCircle, ShieldCheck,
+  ArrowLeft, User, Clock, AlertTriangle, Eye, Heart, CheckCircle,
 } from 'lucide-react';
 
 const BLOOD_COLORS = {
@@ -115,9 +115,6 @@ export default function UserPublicProfile() {
             <div className="pb-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-black text-gray-900 dark:text-gray-100">{profile.full_name}</h1>
-                {false && (
-                  <span className="hidden">
-                )}
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">@{profile.username}</p>
             </div>
