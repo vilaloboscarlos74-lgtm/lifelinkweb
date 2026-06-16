@@ -164,32 +164,13 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario desactivado")
 
-    # TOTP tiene prioridad sobre email 2FA (más seguro, sin dependencia de red)
+    # Solo TOTP requiere verificación adicional al iniciar sesión
     if user.totp_enabled:
         temp_token = create_temp_token(user.id)
         return {
             "requires_2fa": True,
             "temp_token": temp_token,
             "method": "totp",
-        }
-
-    # 2FA por email
-    if user.email_2fa_enabled:
-        otp = _generate_otp(user, db)
-        try:
-            await send_otp_email(user.email, user.username, otp)
-        except Exception as e:
-            logger.error(f"Error enviando OTP a {user.email}: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail="No se pudo enviar el código de verificación. Verifica la configuración de email o intenta más tarde.",
-            )
-        temp_token = create_temp_token(user.id)
-        return {
-            "requires_2fa": True,
-            "temp_token": temp_token,
-            "method": "email",
-            "masked_email": _mask_email(user.email),
         }
 
     token = create_access_token(data={

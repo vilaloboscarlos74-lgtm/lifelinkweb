@@ -41,11 +41,6 @@ export function AuthProvider({ children }) {
     return _saveSession(res.data.access_token, res.data.user);
   };
 
-  const complete2FA = async (temp_token, otp) => {
-    const res = await authAPI.verify2FA(temp_token, otp);
-    return _saveSession(res.data.access_token, res.data.user);
-  };
-
   const completeTOTP = async (temp_token, code) => {
     const res = await authAPI.verifyTOTP(temp_token, code);
     return _saveSession(res.data.access_token, res.data.user);
@@ -80,7 +75,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, complete2FA, completeTOTP, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, completeTOTP, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

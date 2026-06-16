@@ -226,11 +226,12 @@ def complete_request(
     )
     db.add(notif_sender)
     # También notificar al receptor (dueño del insumo) para que reseñe al solicitante
+    _sender = db.get(User, req.sender_id)
     notif_receiver = Notification(
         user_id=req.receiver_id,
         type=NotificationType.SOLICITUD_ACEPTADA,
         title="Entrega marcada como completada ⭐",
-        content=f"¿Cómo fue tu experiencia con {db.query(User).get(req.sender_id).full_name if db.query(User).get(req.sender_id) else 'el solicitante'}? Deja una reseña.",
+        content=f"¿Cómo fue tu experiencia con {_sender.full_name if _sender else 'el solicitante'}? Deja una reseña.",
         link=f"/requests?review={req.id}"
     )
     db.add(notif_receiver)
