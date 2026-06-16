@@ -1,16 +1,15 @@
 """
-Script para poblar la base de datos con datos simulados.
+Script aditivo para poblar la base de datos con más actividad histórica desde 2025.
+
+A diferencia de seed_data.py (que distribuye sobre los últimos 12 meses relativos
+a "ahora"), este script reparte fechas de creación desde enero 2025 hasta hoy,
+dando más peso a los meses de 2025 que suelen estar menos poblados.
+
+No borra nada existente — solo inserta usuarios, insumos y solicitudes nuevos.
 
 Uso:
     cd backend
-    pip install faker          # solo la primera vez
-    python seed_data.py
-
-Crea ~220 usuarios, ~450 insumos y ~350 solicitudes distribuidos
-a lo largo de los últimos 12 meses con una tendencia de crecimiento.
-Las ubicaciones se limitan a CDMX y Estado de México (alcaldías y
-municipios), igual que el catálogo del frontend (constants/ubicaciones.js).
-Todos los usuarios de prueba tienen la contraseña: Test1234!
+    DATABASE_URL="postgresql://..." python seed_2025.py
 """
 
 import os
@@ -25,6 +24,7 @@ load_dotenv()
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
 
 try:
     from faker import Faker
@@ -35,10 +35,9 @@ except ImportError:
 
 from app.utils.security import hash_password
 
-# ── Conexión ──────────────────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 if not DATABASE_URL:
-    print("ERROR: define DATABASE_URL en tu .env")
+    print("ERROR: define DATABASE_URL en tu .env o como variable de entorno")
     sys.exit(1)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -48,7 +47,6 @@ Session = sessionmaker(bind=engine)
 
 
 def _enum_values(conn, type_name: str) -> list[str]:
-    """Lee los valores reales del enum directo de la BD (evita asumir un esquema fijo)."""
     rows = conn.execute(text(
         "SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid "
         "WHERE pg_type.typname = :t ORDER BY enumsortorder"
@@ -63,7 +61,6 @@ with engine.connect() as _conn:
     CATEGORIES = _enum_values(_conn, "supplycategory")
     CONDITIONS = _enum_values(_conn, "supplycondition")
     STATUSES = _enum_values(_conn, "supplystatus")
-    # Algunos entornos tienen una etiqueta legacy en minúsculas duplicada; usamos solo mayúsculas
     _all_supply_types = _enum_values(_conn, "supplytype")
     SUPPLY_TYPES = [t for t in _all_supply_types if t.isupper() and t != "SOLICITUD"] or \
                    [t for t in _all_supply_types if t != "solicitud" and t != "SOLICITUD"]
@@ -97,7 +94,6 @@ MUNICIPIOS_EDOMEX = [
     "Zinacantepec", "Zumpango",
 ]
 
-# (ciudad/alcaldía-municipio, estado) — debe coincidir con frontend/src/constants/ubicaciones.js
 CITIES = (
     [(c, "Ciudad de México") for c in ALCALDIAS_CDMX]
     + [(m, "Estado de México") for m in MUNICIPIOS_EDOMEX]
@@ -202,16 +198,25 @@ def random_date_in_month(year: int, month: int) -> datetime:
     else:
         end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
     start = datetime(year, month, 1, tzinfo=timezone.utc)
+    end = min(end, NOW)
+    if end <= start:
+        return start
     delta_secs = int((end - start).total_seconds())
-    return start + timedelta(seconds=random.randint(0, delta_secs - 1))
+    return start + timedelta(seconds=random.randint(0, max(delta_secs - 1, 0)))
 
 
-def monthly_weights():
-    """Últimos 12 meses; los meses más recientes tienen más peso."""
+def monthly_weights_since_2025():
+    """Enero 2025 hasta el mes actual. Da más peso a los meses de 2025
+    (probablemente menos poblados) y menos a los de 2026 (ya poblados)."""
     months = []
-    for i in range(11, -1, -1):
-        d = NOW - timedelta(days=30 * i)
-        months.append((d.year, d.month, i + 3))
+    y, m = 2025, 1
+    while (y, m) <= (NOW.year, NOW.month):
+        weight = 5 if y == 2025 else 1
+        months.append((y, m, weight))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
     return months
 
 
@@ -221,65 +226,69 @@ def pick_month(mw):
     return chosen[0], chosen[1]
 
 
-# ── Seeding ───────────────────────────────────────────────────────────────────
 def seed():
     db = Session()
     try:
-        mw = monthly_weights()
+        mw = monthly_weights_since_2025()
+        print(f"Rango de meses: {mw[0][0]}-{mw[0][1]:02d} a {mw[-1][0]}-{mw[-1][1]:02d}")
 
-        # ── 1. Usuarios ───────────────────────────────────────────────────────
         print("Creando usuarios...")
         user_ids = []
+        target_users = 200
 
-        for _ in range(220):
+        while len(user_ids) < target_users:
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             city, state = random.choice(CITIES)
             role = random.choices(ROLES, weights=[60, 40])[0]
             blood_type = random.choice([None] + BLOOD_TYPES)
-            username = (fake.user_name()[:46] + str(random.randint(10, 99))).replace(".", "_")
+            username = (fake.user_name()[:40] + str(random.randint(100, 999))).replace(".", "_")
+            email = fake.unique.email()
 
-            row = db.execute(text("""
-                INSERT INTO users
-                    (email, username, hashed_password, full_name, phone, role,
-                     city, state, bio, is_active, email_verified, is_verified,
-                     is_blood_donor, blood_type, rating_avg, created_at)
-                VALUES
-                    (:email, :username, :pwd, :full_name, :phone,
-                     CAST(:role AS userrole),
-                     :city, :state, :bio,
-                     TRUE, TRUE, :is_verified,
-                     :is_blood_donor,
-                     CAST(:blood_type AS bloodtype),
-                     :rating, :created_at)
-                RETURNING id
-            """), {
-                "email":          fake.unique.email(),
-                "username":       username,
-                "pwd":            PASSWORD_HASH,
-                "full_name":      fake.name(),
-                "phone":          fake.numerify("55########"),
-                "role":           role,
-                "city":           city,
-                "state":          state,
-                "bio":            random.choice([None, fake.sentence(nb_words=8)]),
-                "is_verified":    random.random() < 0.3,
-                "is_blood_donor": random.random() < 0.25,
-                "blood_type":     blood_type,
-                "rating":         round(random.uniform(3.5, 5.0), 1),
-                "created_at":     created,
-            })
-            user_ids.append(row.scalar())
+            try:
+                row = db.execute(text("""
+                    INSERT INTO users
+                        (email, username, hashed_password, full_name, phone, role,
+                         city, state, bio, is_active, email_verified, is_verified,
+                         is_blood_donor, blood_type, rating_avg, created_at)
+                    VALUES
+                        (:email, :username, :pwd, :full_name, :phone,
+                         CAST(:role AS userrole),
+                         :city, :state, :bio,
+                         TRUE, TRUE, :is_verified,
+                         :is_blood_donor,
+                         CAST(:blood_type AS bloodtype),
+                         :rating, :created_at)
+                    RETURNING id
+                """), {
+                    "email":          email,
+                    "username":       username,
+                    "pwd":            PASSWORD_HASH,
+                    "full_name":      fake.name(),
+                    "phone":          fake.numerify("55########"),
+                    "role":           role,
+                    "city":           city,
+                    "state":          state,
+                    "bio":            random.choice([None, fake.sentence(nb_words=8)]),
+                    "is_verified":    random.random() < 0.3,
+                    "is_blood_donor": random.random() < 0.25,
+                    "blood_type":     blood_type,
+                    "rating":         round(random.uniform(3.5, 5.0), 1),
+                    "created_at":     created,
+                })
+                user_ids.append(row.scalar())
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                continue
 
-        db.commit()
         print(f"  {len(user_ids)} usuarios creados.")
 
-        # ── 2. Insumos ────────────────────────────────────────────────────────
         print("Creando insumos...")
         supply_ids = []
-        type_weights = [35, 30, 35]   # DONACION, VENTA, INTERCAMBIO
+        type_weights = [35, 30, 35]
 
-        for _ in range(450):
+        for _ in range(400):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             stype = random.choices(SUPPLY_TYPES, weights=type_weights)[0]
@@ -288,7 +297,7 @@ def seed():
             owner_id = random.choice(user_ids)
             price = round(random.uniform(200, 8000), 2) if stype == "VENTA" else None
             status = random.choices(
-                STATUSES[:3],       # DISPONIBLE, RESERVADO, ENTREGADO
+                STATUSES[:3],
                 weights=[60, 15, 25]
             )[0]
 
@@ -327,13 +336,12 @@ def seed():
         db.commit()
         print(f"  {len(supply_ids)} insumos creados.")
 
-        # ── 3. Solicitudes de contacto ────────────────────────────────────────
         print("Creando solicitudes de contacto...")
         req_count = 0
         seen = set()
-        req_status_weights = [20, 20, 15, 10, 35]  # PENDIENTE ACEPTADA RECHAZADA CANCELADA COMPLETADA
+        req_status_weights = [20, 20, 15, 10, 35]
 
-        for _ in range(400):
+        for _ in range(350):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             supply_id, owner_id = random.choice(supply_ids)
@@ -369,7 +377,7 @@ def seed():
 
         db.commit()
         print(f"  {req_count} solicitudes creadas.")
-        print("\nOK: Base de datos poblada exitosamente.")
+        print("\nOK: Base de datos ampliada con datos desde enero 2025.")
         print("  Contraseña de todos los usuarios de prueba: Test1234!")
 
     except Exception as e:
