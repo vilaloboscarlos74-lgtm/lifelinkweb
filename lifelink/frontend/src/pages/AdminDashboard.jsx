@@ -9,108 +9,194 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ── Gráfica barras verticales ────────────────────────────────────────────────
-function BarChart({ data, colorClass = 'bg-primary-500' }) {
+// ── Gráfica barras verticales (SVG profesional) ──────────────────────────────
+function BarChart({ data, color = '#6366f1' }) {
+  if (!data?.length) return null;
   const max = Math.max(...data.map(d => d.count), 1);
-  return (
-    <div className="flex items-end gap-1.5 h-32 w-full">
-      {data.map((d, i) => (
-        <div key={i} className="flex flex-col items-center flex-1 gap-1">
-          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{d.count}</span>
-          <div className={`w-full rounded-t-md ${colorClass} transition-all duration-500`}
-            style={{ height: `${Math.max((d.count / max) * 100, 4)}%` }} />
-          <span className="text-[9px] text-gray-400 dark:text-gray-500 text-center leading-tight whitespace-nowrap overflow-hidden w-full text-ellipsis">
-            {d.month || d.type || d.category}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Gráfica barras horizontales ──────────────────────────────────────────────
-function HBarChart({ data }) {
-  const max = Math.max(...data.map(d => d.count), 1);
-  const COLORS = ['bg-primary-500','bg-medical-500','bg-accent-500','bg-amber-500','bg-purple-500','bg-emerald-500','bg-pink-500','bg-cyan-500'];
-  return (
-    <div className="flex flex-col gap-2 w-full">
-      {data.map((d, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-xs text-gray-600 dark:text-gray-400 w-28 shrink-0 text-right truncate capitalize">
-            {d.type || d.category}
-          </span>
-          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
-            <div className={`h-full rounded-full ${COLORS[i % COLORS.length]} transition-all duration-500`}
-              style={{ width: `${Math.max((d.count / max) * 100, 4)}%` }} />
-          </div>
-          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 w-6 text-right">{d.count}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Gráfica de actividad anual (multi-serie) ─────────────────────────────────
-function YearlyChart({ data }) {
-  if (!data?.length) return <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>;
-
-  const series = [
-    { key: 'usuarios',     label: 'Usuarios',     color: '#6366f1' },
-    { key: 'donaciones',   label: 'Donaciones',   color: '#10b981' },
-    { key: 'ventas',       label: 'Ventas',       color: '#3b82f6' },
-    { key: 'intercambios', label: 'Intercambios', color: '#f59e0b' },
-    { key: 'solicitudes',  label: 'Solicitudes',  color: '#f43f5e' },
-  ];
-
-  const allVals = series.flatMap(s => data.map(d => d[s.key] ?? 0));
-  const max = Math.max(...allVals, 1);
-  const W = 560, H = 160, PL = 8, PR = 8, PT = 14, PB = 20;
+  const W = 500, H = 190, PL = 34, PR = 8, PT = 18, PB = 26;
   const plotW = W - PL - PR;
   const plotH = H - PT - PB;
   const n = data.length;
+  const gap = 6;
+  const barW = Math.max(plotW / n - gap, 8);
+  const gid = 'bg1';
 
-  const pts = (key) =>
-    data.map((d, i) => {
-      const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
-      const y = PT + (1 - (d[key] ?? 0) / max) * plotH;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 190 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="1" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.35" />
+        </linearGradient>
+      </defs>
+      {[0, 0.25, 0.5, 0.75, 1].map(f => {
+        const y = PT + (1 - f) * plotH;
+        return (
+          <g key={f}>
+            <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="currentColor"
+              strokeOpacity={f === 0 ? 0.18 : 0.07} strokeWidth="1" strokeDasharray={f === 0 ? '0' : '3 4'} />
+            <text x={PL - 5} y={y + 3.5} textAnchor="end" fontSize="9" fill="#9ca3af">
+              {Math.round(f * max)}
+            </text>
+          </g>
+        );
+      })}
+      {data.map((d, i) => {
+        const bh = Math.max((d.count / max) * plotH, d.count > 0 ? 4 : 0);
+        const x = PL + (i / n) * plotW + (plotW / n - barW) / 2;
+        const y = PT + plotH - bh;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={bh} rx="5" ry="5"
+              fill={`url(#${gid})`} />
+            {d.count > 0 && (
+              <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="9"
+                fontWeight="700" fill={color}>{d.count}</text>
+            )}
+            <text x={x + barW / 2} y={H - 7} textAnchor="middle" fontSize="8.5" fill="#9ca3af">
+              {(d.month || d.type || d.category || '').replace(/_/g,' ')}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ── Gráfica barras horizontales (profesional) ─────────────────────────────────
+function HBarChart({ data }) {
+  if (!data?.length) return null;
+  const max = Math.max(...data.map(d => d.count), 1);
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#8b5cf6','#14b8a6','#f43f5e','#f97316'];
+
+  return (
+    <div className="space-y-2.5">
+      {data.map((d, i) => {
+        const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+        const barW = Math.max((d.count / max) * 100, d.count > 0 ? 2 : 0);
+        const color = COLORS[i % COLORS.length];
+        const label = (d.type || d.category || '').replace(/_/g,' ').toLowerCase();
+        return (
+          <div key={i}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{label}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums">{pct}%</span>
+                <span className="text-xs font-bold tabular-nums min-w-[1.75rem] text-right"
+                  style={{ color }}>{d.count}</span>
+              </div>
+            </div>
+            <div className="h-2 bg-gray-100 dark:bg-gray-700/50 rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${barW}%`, background: `linear-gradient(90deg, ${color}dd, ${color}99)` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Gráfica de actividad anual — líneas suavizadas con área ──────────────────
+function YearlyChart({ data }) {
+  if (!data?.length) return <p className="text-sm text-gray-400 text-center py-12">Sin datos aún</p>;
+
+  const series = [
+    { key: 'solicitudes',  label: 'Solicitudes',  color: '#f43f5e' },
+    { key: 'donaciones',   label: 'Donaciones',   color: '#10b981' },
+    { key: 'ventas',       label: 'Ventas',       color: '#3b82f6' },
+    { key: 'intercambios', label: 'Intercambios', color: '#f59e0b' },
+    { key: 'usuarios',     label: 'Usuarios',     color: '#6366f1' },
+  ];
+
+  const allVals = series.flatMap(s => data.map(d => d[s.key] ?? 0));
+  const rawMax = Math.max(...allVals, 1);
+  const max = rawMax + Math.ceil(rawMax * 0.12);
+  const W = 700, H = 240, PL = 38, PR = 14, PT = 16, PB = 30;
+  const plotW = W - PL - PR;
+  const plotH = H - PT - PB;
+  const n = data.length;
+  const xOf = i => PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
+  const yOf = v => PT + (1 - Math.min(v, max) / max) * plotH;
+
+  const bezierPath = (key) => {
+    const pts = data.map((d, i) => [xOf(i), yOf(d[key] ?? 0)]);
+    if (pts.length === 1) return `M ${pts[0][0]} ${pts[0][1]}`;
+    let p = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const cpx = (pts[i - 1][0] + pts[i][0]) / 2;
+      p += ` C ${cpx.toFixed(1)} ${pts[i-1][1].toFixed(1)}, ${cpx.toFixed(1)} ${pts[i][1].toFixed(1)}, ${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}`;
+    }
+    return p;
+  };
+
+  const areaPath = (key) => {
+    const line = bezierPath(key);
+    const bottom = PT + plotH;
+    return `${line} L ${xOf(n-1).toFixed(1)} ${bottom} L ${xOf(0).toFixed(1)} ${bottom} Z`;
+  };
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 170 }}>
-        {/* horizontal grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map(f => {
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 240 }}>
+        <defs>
+          {series.map(s => (
+            <linearGradient key={s.key} id={`ag-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity="0.18" />
+              <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+            </linearGradient>
+          ))}
+        </defs>
+        {/* Grid horizontal */}
+        {yTicks.map(f => {
           const y = PT + (1 - f) * plotH;
-          return <line key={f} x1={PL} x2={W - PR} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />;
-        })}
-        {/* series lines */}
-        {series.map(s => (
-          <polyline key={s.key} points={pts(s.key)} fill="none" stroke={s.color} strokeWidth="2.2"
-            strokeLinejoin="round" strokeLinecap="round" />
-        ))}
-        {/* dots for current month */}
-        {series.map(s =>
-          data.map((d, i) => {
-            const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
-            const y = PT + (1 - (d[s.key] ?? 0) / max) * plotH;
-            return <circle key={`${s.key}-${i}`} cx={x} cy={y} r="2.5" fill={s.color} />;
-          })
-        )}
-        {/* month labels */}
-        {data.map((d, i) => {
-          const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
           return (
-            <text key={i} x={x} y={H - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">
-              {d.month}
-            </text>
+            <g key={f}>
+              <line x1={PL} x2={W - PR} y1={y} y2={y} stroke="currentColor"
+                strokeOpacity={f === 0 ? 0.18 : 0.07} strokeWidth="1"
+                strokeDasharray={f === 0 ? '0' : '4 5'} />
+              <text x={PL - 6} y={y + 3.5} textAnchor="end" fontSize="9" fill="#9ca3af">
+                {Math.round(f * max)}
+              </text>
+            </g>
           );
         })}
-      </svg>
-      <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-1 justify-center">
+        {/* Áreas rellenas (de atrás hacia adelante) */}
+        {[...series].reverse().map(s => (
+          <path key={`a-${s.key}`} d={areaPath(s.key)} fill={`url(#ag-${s.key})`} />
+        ))}
+        {/* Líneas */}
         {series.map(s => (
-          <span key={s.key} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-            <span className="inline-block w-4 rounded-full" style={{ backgroundColor: s.color, height: 3 }} />
+          <path key={`l-${s.key}`} d={bezierPath(s.key)} fill="none"
+            stroke={s.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+        {/* Puntos con tooltip */}
+        {series.map(s =>
+          data.map((d, i) => (
+            <circle key={`d-${s.key}-${i}`} cx={xOf(i)} cy={yOf(d[s.key] ?? 0)}
+              r="3.5" fill="white" stroke={s.color} strokeWidth="2">
+              <title>{s.label}: {d[s.key] ?? 0} — {d.month}</title>
+            </circle>
+          ))
+        )}
+        {/* Etiquetas eje X */}
+        {data.map((d, i) => (
+          <text key={i} x={xOf(i)} y={H - 9} textAnchor="middle" fontSize="9" fill="#9ca3af">
+            {d.month}
+          </text>
+        ))}
+      </svg>
+      {/* Leyenda */}
+      <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 justify-center">
+        {[...series].reverse().map(s => (
+          <span key={s.key} className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400">
+            <span className="inline-block w-3.5 h-1 rounded-full" style={{ backgroundColor: s.color }} />
             {s.label}
           </span>
         ))}
@@ -242,72 +328,167 @@ function StatsTab({ stats, error, onRefresh }) {
   if (!stats) return null;
 
   const charts = stats.charts || {};
+  const year = new Date().getFullYear();
+
+  // Totales del año actual desde yearly_activity
+  const yearTotals = (charts.yearly_activity || []).reduce(
+    (acc, m) => ({
+      usuarios:    acc.usuarios    + (m.usuarios    ?? 0),
+      donaciones:  acc.donaciones  + (m.donaciones  ?? 0),
+      ventas:      acc.ventas      + (m.ventas      ?? 0),
+      solicitudes: acc.solicitudes + (m.solicitudes ?? 0),
+    }),
+    { usuarios: 0, donaciones: 0, ventas: 0, solicitudes: 0 }
+  );
+
   return (
     <div className="space-y-6">
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { icon: Users,         label: 'Usuarios totales',   value: stats.users?.total,        sub: `${stats.users?.active ?? 0} activos`,            color: 'text-primary-600 bg-primary-100 dark:bg-primary-900/30' },
-          { icon: Package,       label: 'Insumos publicados', value: stats.supplies?.total,     sub: `${stats.supplies?.available ?? 0} disponibles`,  color: 'text-medical-600 bg-medical-100 dark:bg-medical-900/30' },
-          { icon: MessageCircle, label: 'Solicitudes',        value: stats.requests?.total,     sub: `${stats.requests?.pending ?? 0} pendientes`,     color: 'text-amber-600 bg-amber-100 dark:bg-amber-900/30' },
-          { icon: Droplets,      label: 'Donantes de sangre', value: stats.users?.blood_donors, sub: `${stats.requests?.completed ?? 0} completadas`,  color: 'text-accent-600 bg-accent-100 dark:bg-accent-900/30' },
-        ].map(({ icon: Icon, label, value, sub, color }) => (
-          <div key={label} className="card p-5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
-              <Icon size={20} />
+          {
+            icon: Users, label: 'Usuarios totales', value: stats.users?.total,
+            badge: `${stats.users?.active ?? 0} activos`,
+            sub: `+${yearTotals.usuarios} en ${year}`,
+            gradient: 'from-indigo-500 to-violet-600',
+            bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+            text: 'text-indigo-600 dark:text-indigo-400',
+          },
+          {
+            icon: Package, label: 'Insumos publicados', value: stats.supplies?.total,
+            badge: `${stats.supplies?.available ?? 0} disponibles`,
+            sub: `${yearTotals.donaciones} donados en ${year}`,
+            gradient: 'from-emerald-500 to-teal-600',
+            bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+            text: 'text-emerald-600 dark:text-emerald-400',
+          },
+          {
+            icon: MessageCircle, label: 'Solicitudes totales', value: stats.requests?.total,
+            badge: `${stats.requests?.pending ?? 0} pendientes`,
+            sub: `${stats.requests?.completed ?? 0} completadas`,
+            gradient: 'from-amber-500 to-orange-600',
+            bg: 'bg-amber-50 dark:bg-amber-900/20',
+            text: 'text-amber-600 dark:text-amber-400',
+          },
+          {
+            icon: Droplets, label: 'Donantes de sangre', value: stats.users?.blood_donors,
+            badge: `${yearTotals.ventas} ventas en ${year}`,
+            sub: `${yearTotals.solicitudes} solicitudes este año`,
+            gradient: 'from-rose-500 to-pink-600',
+            bg: 'bg-rose-50 dark:bg-rose-900/20',
+            text: 'text-rose-600 dark:text-rose-400',
+          },
+        ].map(({ icon: Icon, label, value, badge, sub, gradient, bg, text }) => (
+          <div key={label} className="card p-5 relative overflow-hidden">
+            <div className={`absolute top-0 right-0 w-20 h-20 rounded-bl-3xl bg-gradient-to-br ${gradient} opacity-[0.07]`} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${bg}`}>
+              <Icon size={20} className={text} />
             </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value ?? 0}</p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-0.5">{label}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sub}</p>
+            <p className={`text-3xl font-black ${text}`}>{value ?? 0}</p>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">{label}</p>
+            <div className="flex items-center justify-between mt-2">
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${bg} ${text}`}>{badge}</span>
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="flex justify-end">
-        <button onClick={onRefresh}
-          className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-          <RefreshCw size={13} /> Actualizar datos
-        </button>
+      {/* Actividad anual — gráfica principal */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+              <BarChart2 size={18} className="text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 dark:text-gray-100">Actividad anual {year}</h2>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Usuarios registrados · Insumos publicados · Solicitudes recibidas</p>
+            </div>
+          </div>
+          <button onClick={onRefresh}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+            <RefreshCw size={12} /> Actualizar
+          </button>
+        </div>
+        <YearlyChart data={charts.yearly_activity} />
       </div>
 
+      {/* Segunda fila: barras verticales + barras horizontales por tipo */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart2 size={18} className="text-primary-600" />
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200">Registros mensuales</h2>
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
+              <BarChart2 size={16} className="text-violet-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-sm text-gray-900 dark:text-gray-100">Registros mensuales</h2>
+              <p className="text-[11px] text-gray-400">Nuevos usuarios (últimos 6 meses)</p>
+            </div>
           </div>
           {(charts.monthly_registrations?.length > 0)
-            ? <BarChart data={charts.monthly_registrations} colorClass="bg-primary-500" />
+            ? <BarChart data={charts.monthly_registrations} color="#6366f1" />
             : <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>}
         </div>
+
         <div className="card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Package size={18} className="text-medical-600" />
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200">Insumos por tipo</h2>
+          <div className="flex items-center gap-2.5 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+              <Package size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="font-bold text-sm text-gray-900 dark:text-gray-100">Insumos por tipo</h2>
+              <p className="text-[11px] text-gray-400">Distribución de publicaciones</p>
+            </div>
           </div>
           {(charts.supplies_by_type?.length > 0)
             ? <HBarChart data={charts.supplies_by_type} />
             : <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>}
         </div>
-        <div className="card p-5 lg:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart2 size={18} className="text-amber-600" />
-            <h2 className="font-semibold text-gray-800 dark:text-gray-200">Insumos por categoría (top 8)</h2>
-          </div>
-          {(charts.supplies_by_category?.length > 0)
-            ? <HBarChart data={charts.supplies_by_category} />
-            : <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>}
-        </div>
       </div>
 
-      {/* Gráfica anual */}
+      {/* Categorías — ancho completo */}
       <div className="card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart2 size={18} className="text-indigo-600" />
-          <h2 className="font-semibold text-gray-800 dark:text-gray-200">
-            Actividad anual {new Date().getFullYear()}
-          </h2>
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
+            <ClipboardList size={16} className="text-amber-600" />
+          </div>
+          <div>
+            <h2 className="font-bold text-sm text-gray-900 dark:text-gray-100">Insumos por categoría</h2>
+            <p className="text-[11px] text-gray-400">Top 8 categorías más activas</p>
+          </div>
         </div>
-        <YearlyChart data={charts.yearly_activity} />
+        {(charts.supplies_by_category?.length > 0)
+          ? <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-0.5">
+              {charts.supplies_by_category.map((d, i) => {
+                const max = Math.max(...charts.supplies_by_category.map(x => x.count), 1);
+                const total = charts.supplies_by_category.reduce((s, x) => s + x.count, 0);
+                const COLORS = ['#6366f1','#10b981','#3b82f6','#f59e0b','#8b5cf6','#14b8a6','#f43f5e','#f97316'];
+                const color = COLORS[i % COLORS.length];
+                const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+                const barW = Math.max((d.count / max) * 100, d.count > 0 ? 2 : 0);
+                const label = (d.category || '').replace(/_/g,' ').toLowerCase();
+                return (
+                  <div key={i} className="py-1.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className="text-[11px] text-gray-400 tabular-nums">{pct}%</span>
+                        <span className="text-xs font-bold tabular-nums min-w-[1.5rem] text-right" style={{ color }}>{d.count}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700/50 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${barW}%`, background: `linear-gradient(90deg, ${color}dd, ${color}77)` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          : <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>}
       </div>
     </div>
   );

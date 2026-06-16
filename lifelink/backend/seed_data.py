@@ -16,7 +16,6 @@ import sys
 import random
 from datetime import datetime, timezone, timedelta
 
-# Asegurar que el path incluye el directorio backend
 sys.path.insert(0, os.path.dirname(__file__))
 
 from dotenv import load_dotenv
@@ -25,18 +24,14 @@ load_dotenv()
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from app.models.user import User, UserRole, BloodType
-from app.models.supply import Supply, SupplyType, SupplyCategory, SupplyCondition, SupplyStatus
-from app.models.request import ContactRequest, RequestStatus
-from app.database import Base
-from app.utils.security import hash_password
-
 try:
     from faker import Faker
     fake = Faker("es_MX")
 except ImportError:
     print("ERROR: instala faker primero: pip install faker")
     sys.exit(1)
+
+from app.utils.security import hash_password
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -49,9 +44,19 @@ if DATABASE_URL.startswith("postgres://"):
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 Session = sessionmaker(bind=engine)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-NOW = datetime.now(timezone.utc)
+# ── Constantes con valores EXACTOS de los enums en la BD ─────────────────────
+ROLES       = ["SOLICITANTE", "DONANTE"]
+BLOOD_TYPES = ["A_POS", "A_NEG", "B_POS", "B_NEG", "AB_POS", "AB_NEG", "O_POS", "O_NEG"]
+CATEGORIES  = ["ORTOPEDICO", "REHABILITACION", "DIAGNOSTICO", "PROTESIS",
+               "MOBILIARIO", "CONSUMIBLES", "SANGRE", "OTRO"]
+CONDITIONS  = ["NUEVO", "SEMINUEVO", "USADO_BUEN_ESTADO", "USADO"]
+STATUSES    = ["DISPONIBLE", "RESERVADO", "ENTREGADO", "CANCELADO"]
+# supplytype NO tiene SOLICITUD en la BD
+SUPPLY_TYPES = ["DONACION", "VENTA", "INTERCAMBIO"]
+REQ_STATUSES = ["PENDIENTE", "ACEPTADA", "RECHAZADA", "CANCELADA", "COMPLETADA"]
+
 PASSWORD_HASH = hash_password("Test1234!")
+NOW = datetime.now(timezone.utc)
 
 CITIES = [
     ("Ciudad de México", "CDMX"),
@@ -67,7 +72,7 @@ CITIES = [
 ]
 
 SUPPLY_TITLES = {
-    SupplyType.DONACION: [
+    "DONACION": [
         "Silla de ruedas en buen estado",
         "Andadera ortopédica plegable",
         "Cama de hospital manual",
@@ -79,71 +84,51 @@ SUPPLY_TITLES = {
         "Tensiómetro digital de brazo",
         "Colchón antiescaras",
     ],
-    SupplyType.VENTA: [
+    "VENTA": [
         "Silla de ruedas eléctrica",
         "Cama articulada eléctrica",
-        "Compresor de aire médico",
         "Concentrador de oxígeno 5L",
         "Andadera con ruedas y frenos",
-        "Protesis de miembro inferior",
         "Aparato auditivo digital",
-        "Bomba de infusión usada",
         "Monitor de signos vitales",
-        "Ventilador CPAP",
+        "Ventilador CPAP seminuevo",
+        "Bomba de infusión portátil",
+        "Compresor de aire médico",
+        "Caminador con asiento plegable",
     ],
-    SupplyType.INTERCAMBIO: [
-        "Cambio silla por andadera",
+    "INTERCAMBIO": [
+        "Cambio silla de ruedas por andadera",
         "Intercambio muletas por bastón",
         "Cambio tensiómetro por glucómetro",
         "Intercambio nebulizador pequeño",
-        "Cambio oxímetro por termómetro",
-    ],
-    SupplyType.SOLICITUD: [
-        "Necesito silla de ruedas para abuela",
-        "Busco cama hospitalaria urgente",
-        "Solicito muletas talla adulto",
-        "Necesito andadera para rehabilitación",
-        "Busco nebulizador para bebé",
-        "Solicito colchón antiescaras",
-        "Necesito bastón plegable",
-        "Busco concentrador de oxígeno",
+        "Cambio oxímetro por termómetro digital",
+        "Intercambio cama hospitalaria por cama articulada",
     ],
 }
 
-CATEGORIES = list(SupplyCategory)
-CONDITIONS = list(SupplyCondition)
-BLOOD_TYPES = list(BloodType)
-
 
 def random_date_in_month(year: int, month: int) -> datetime:
-    """Fecha aleatoria dentro de un mes dado."""
     if month == 12:
-        next_month = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     else:
-        next_month = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+        end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
     start = datetime(year, month, 1, tzinfo=timezone.utc)
-    delta = (next_month - start).days
-    return start + timedelta(days=random.randint(0, delta - 1),
-                             hours=random.randint(0, 23),
-                             minutes=random.randint(0, 59))
+    delta_secs = int((end - start).total_seconds())
+    return start + timedelta(seconds=random.randint(0, delta_secs - 1))
 
 
-def monthly_weights() -> list[tuple[int, int, int]]:
-    """
-    Devuelve lista de (year, month, weight) para los últimos 12 meses.
-    Los meses recientes tienen más peso para simular crecimiento.
-    """
+def monthly_weights():
+    """Últimos 12 meses; los meses más recientes tienen más peso."""
     months = []
     for i in range(11, -1, -1):
         d = NOW - timedelta(days=30 * i)
-        weight = i + 3          # meses más cercanos = mayor peso
-        months.append((d.year, d.month, weight))
+        months.append((d.year, d.month, i + 3))
     return months
 
 
-def pick_month(month_weights) -> tuple[int, int]:
-    weights = [w for _, _, w in month_weights]
-    chosen = random.choices(month_weights, weights=weights, k=1)[0]
+def pick_month(mw):
+    weights = [w for _, _, w in mw]
+    chosen = random.choices(mw, weights=weights, k=1)[0]
     return chosen[0], chosen[1]
 
 
@@ -155,143 +140,149 @@ def seed():
 
         # ── 1. Usuarios ───────────────────────────────────────────────────────
         print("Creando usuarios...")
-        users = []
+        user_ids = []
+
         for _ in range(70):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             city, state = random.choice(CITIES)
-            role = random.choices(
-                [UserRole.SOLICITANTE, UserRole.DONANTE],
-                weights=[60, 40]
-            )[0]
-            username = fake.user_name()[:48] + str(random.randint(10, 99))
-            u = User(
-                email=fake.unique.email(),
-                username=username,
-                hashed_password=PASSWORD_HASH,
-                full_name=fake.name(),
-                phone=fake.numerify("55########"),
-                role=role,
-                city=city,
-                state=state,
-                bio=random.choice([None, fake.sentence(nb_words=8)]),
-                is_active=True,
-                email_verified=True,
-                is_verified=random.random() < 0.3,
-                is_blood_donor=random.random() < 0.25,
-                blood_type=random.choice([None, *BLOOD_TYPES]),
-                rating_avg=round(random.uniform(3.5, 5.0), 1),
-            )
-            db.add(u)
-            db.flush()
-            # Ajustar created_at manualmente después del INSERT
-            db.execute(
-                text("UPDATE users SET created_at = :ts WHERE id = :id"),
-                {"ts": created, "id": u.id},
-            )
-            users.append(u)
+            role = random.choices(ROLES, weights=[60, 40])[0]
+            blood_type = random.choice([None] + BLOOD_TYPES)
+            username = (fake.user_name()[:46] + str(random.randint(10, 99))).replace(".", "_")
+
+            row = db.execute(text("""
+                INSERT INTO users
+                    (email, username, hashed_password, full_name, phone, role,
+                     city, state, bio, is_active, email_verified, is_verified,
+                     is_blood_donor, blood_type, rating_avg, created_at)
+                VALUES
+                    (:email, :username, :pwd, :full_name, :phone,
+                     CAST(:role AS userrole),
+                     :city, :state, :bio,
+                     TRUE, TRUE, :is_verified,
+                     :is_blood_donor,
+                     CAST(:blood_type AS bloodtype),
+                     :rating, :created_at)
+                RETURNING id
+            """), {
+                "email":          fake.unique.email(),
+                "username":       username,
+                "pwd":            PASSWORD_HASH,
+                "full_name":      fake.name(),
+                "phone":          fake.numerify("55########"),
+                "role":           role,
+                "city":           city,
+                "state":          state,
+                "bio":            random.choice([None, fake.sentence(nb_words=8)]),
+                "is_verified":    random.random() < 0.3,
+                "is_blood_donor": random.random() < 0.25,
+                "blood_type":     blood_type,
+                "rating":         round(random.uniform(3.5, 5.0), 1),
+                "created_at":     created,
+            })
+            user_ids.append(row.scalar())
 
         db.commit()
-        print(f"  {len(users)} usuarios creados.")
+        print(f"  {len(user_ids)} usuarios creados.")
 
         # ── 2. Insumos ────────────────────────────────────────────────────────
         print("Creando insumos...")
-        supplies = []
-        type_weights = {
-            SupplyType.DONACION: 35,
-            SupplyType.VENTA: 30,
-            SupplyType.INTERCAMBIO: 15,
-            SupplyType.SOLICITUD: 20,
-        }
-        supply_types = list(type_weights.keys())
-        supply_wts = list(type_weights.values())
+        supply_ids = []
+        type_weights = [35, 30, 35]   # DONACION, VENTA, INTERCAMBIO
 
         for _ in range(180):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
-            stype = random.choices(supply_types, weights=supply_wts)[0]
-            title_pool = SUPPLY_TITLES[stype]
+            stype = random.choices(SUPPLY_TYPES, weights=type_weights)[0]
+            title = random.choice(SUPPLY_TITLES[stype])
+            if random.random() < 0.4:
+                title += f" - {fake.word().capitalize()}"
             city, state = random.choice(CITIES)
-            owner = random.choice(users)
-            price = None
-            if stype == SupplyType.VENTA:
-                price = round(random.uniform(200, 8000), 2)
+            owner_id = random.choice(user_ids)
+            price = round(random.uniform(200, 8000), 2) if stype == "VENTA" else None
+            status = random.choices(
+                STATUSES[:3],       # DISPONIBLE, RESERVADO, ENTREGADO
+                weights=[60, 15, 25]
+            )[0]
 
-            s = Supply(
-                title=random.choice(title_pool) + (
-                    f" - {fake.word().capitalize()}" if random.random() < 0.4 else ""
-                ),
-                description=fake.paragraph(nb_sentences=3),
-                supply_type=stype,
-                category=random.choice(CATEGORIES),
-                condition=random.choice(CONDITIONS) if stype != SupplyType.SOLICITUD else None,
-                status=random.choices(
-                    [SupplyStatus.DISPONIBLE, SupplyStatus.RESERVADO, SupplyStatus.ENTREGADO],
-                    weights=[60, 15, 25]
-                )[0],
-                price=price,
-                currency="MXN",
-                city=city,
-                state=state,
-                quantity=random.randint(1, 3),
-                is_urgent=random.random() < 0.12,
-                views_count=random.randint(0, 150),
-                owner_id=owner.id,
-            )
-            db.add(s)
-            db.flush()
-            db.execute(
-                text("UPDATE supplies SET created_at = :ts WHERE id = :id"),
-                {"ts": created, "id": s.id},
-            )
-            supplies.append(s)
+            row = db.execute(text("""
+                INSERT INTO supplies
+                    (title, description, supply_type, category, condition,
+                     status, price, currency, city, state, quantity,
+                     is_urgent, views_count, owner_id, created_at)
+                VALUES
+                    (:title, :desc,
+                     CAST(:stype AS supplytype),
+                     CAST(:category AS supplycategory),
+                     CAST(:condition AS supplycondition),
+                     CAST(:status AS supplystatus),
+                     :price, 'MXN', :city, :state, :qty,
+                     :urgent, :views, :owner_id, :created_at)
+                RETURNING id
+            """), {
+                "title":      title[:200],
+                "desc":       fake.paragraph(nb_sentences=3),
+                "stype":      stype,
+                "category":   random.choice(CATEGORIES),
+                "condition":  random.choice(CONDITIONS),
+                "status":     status,
+                "price":      price,
+                "city":       city,
+                "state":      state,
+                "qty":        random.randint(1, 3),
+                "urgent":     random.random() < 0.12,
+                "views":      random.randint(0, 150),
+                "owner_id":   owner_id,
+                "created_at": created,
+            })
+            supply_ids.append((row.scalar(), owner_id))
 
         db.commit()
-        print(f"  {len(supplies)} insumos creados.")
+        print(f"  {len(supply_ids)} insumos creados.")
 
         # ── 3. Solicitudes de contacto ────────────────────────────────────────
         print("Creando solicitudes de contacto...")
-        available_supplies = [s for s in supplies if s.supply_type != SupplyType.SOLICITUD]
         req_count = 0
-        seen_pairs = set()
+        seen = set()
+        req_status_weights = [20, 20, 15, 10, 35]  # PENDIENTE ACEPTADA RECHAZADA CANCELADA COMPLETADA
 
-        for _ in range(130):
+        for _ in range(150):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
-            supply = random.choice(available_supplies)
-            sender = random.choice(users)
-            if sender.id == supply.owner_id:
+            supply_id, owner_id = random.choice(supply_ids)
+            sender_id = random.choice(user_ids)
+            if sender_id == owner_id:
                 continue
-            pair = (sender.id, supply.owner_id, supply.id)
-            if pair in seen_pairs:
+            key = (sender_id, owner_id, supply_id)
+            if key in seen:
                 continue
-            seen_pairs.add(pair)
+            seen.add(key)
 
-            status = random.choices(
-                [RequestStatus.PENDIENTE, RequestStatus.ACEPTADA,
-                 RequestStatus.RECHAZADA, RequestStatus.COMPLETADA, RequestStatus.CANCELADA],
-                weights=[20, 20, 15, 35, 10]
-            )[0]
+            status = random.choices(REQ_STATUSES, weights=req_status_weights)[0]
+            responded = (created + timedelta(hours=random.randint(1, 72))
+                         if status != "PENDIENTE" else None)
 
-            r = ContactRequest(
-                sender_id=sender.id,
-                receiver_id=supply.owner_id,
-                supply_id=supply.id,
-                message=fake.sentence(nb_words=12),
-                status=status,
-                responded_at=created + timedelta(hours=random.randint(1, 72)) if status != RequestStatus.PENDIENTE else None,
-            )
-            db.add(r)
-            db.flush()
-            db.execute(
-                text("UPDATE contact_requests SET created_at = :ts WHERE id = :id"),
-                {"ts": created, "id": r.id},
-            )
+            db.execute(text("""
+                INSERT INTO contact_requests
+                    (sender_id, receiver_id, supply_id, message, status, responded_at, created_at)
+                VALUES
+                    (:sender, :receiver, :supply, :msg,
+                     CAST(:status AS requeststatus),
+                     :responded, :created_at)
+            """), {
+                "sender":     sender_id,
+                "receiver":   owner_id,
+                "supply":     supply_id,
+                "msg":        fake.sentence(nb_words=12),
+                "status":     status,
+                "responded":  responded,
+                "created_at": created,
+            })
             req_count += 1
 
         db.commit()
         print(f"  {req_count} solicitudes creadas.")
-        print("\n✓ Base de datos poblada exitosamente.")
+        print("\nOK: Base de datos poblada exitosamente.")
         print("  Contraseña de todos los usuarios de prueba: Test1234!")
 
     except Exception as e:
