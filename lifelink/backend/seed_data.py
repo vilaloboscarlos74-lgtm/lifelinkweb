@@ -44,16 +44,36 @@ if DATABASE_URL.startswith("postgres://"):
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 Session = sessionmaker(bind=engine)
 
-# ── Constantes con valores EXACTOS de los enums en la BD ─────────────────────
-ROLES       = ["SOLICITANTE", "DONANTE"]
-BLOOD_TYPES = ["A_POS", "A_NEG", "B_POS", "B_NEG", "AB_POS", "AB_NEG", "O_POS", "O_NEG"]
-CATEGORIES  = ["ORTOPEDICO", "REHABILITACION", "DIAGNOSTICO", "PROTESIS",
-               "MOBILIARIO", "CONSUMIBLES", "SANGRE", "OTRO"]
-CONDITIONS  = ["NUEVO", "SEMINUEVO", "USADO_BUEN_ESTADO", "USADO"]
-STATUSES    = ["DISPONIBLE", "RESERVADO", "ENTREGADO", "CANCELADO"]
-# supplytype NO tiene SOLICITUD en la BD
-SUPPLY_TYPES = ["DONACION", "VENTA", "INTERCAMBIO"]
-REQ_STATUSES = ["PENDIENTE", "ACEPTADA", "RECHAZADA", "CANCELADA", "COMPLETADA"]
+
+def _enum_values(conn, type_name: str) -> list[str]:
+    """Lee los valores reales del enum directo de la BD (evita asumir un esquema fijo)."""
+    rows = conn.execute(text(
+        "SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid "
+        "WHERE pg_type.typname = :t ORDER BY enumsortorder"
+    ), {"t": type_name}).fetchall()
+    return [r[0] for r in rows]
+
+
+with engine.connect() as _conn:
+    _all_roles = _enum_values(_conn, "userrole")
+    ROLES = [r for r in _all_roles if r != "ADMIN"] or _all_roles
+    BLOOD_TYPES = _enum_values(_conn, "bloodtype")
+    CATEGORIES = _enum_values(_conn, "supplycategory")
+    CONDITIONS = _enum_values(_conn, "supplycondition")
+    STATUSES = _enum_values(_conn, "supplystatus")
+    # Algunos entornos tienen una etiqueta legacy en minúsculas duplicada; usamos solo mayúsculas
+    _all_supply_types = _enum_values(_conn, "supplytype")
+    SUPPLY_TYPES = [t for t in _all_supply_types if t.isupper() and t != "SOLICITUD"] or \
+                   [t for t in _all_supply_types if t != "solicitud" and t != "SOLICITUD"]
+    REQ_STATUSES = _enum_values(_conn, "requeststatus")
+
+print("Enums detectados:")
+print(" ROLES:", ROLES)
+print(" BLOOD_TYPES:", BLOOD_TYPES)
+print(" SUPPLY_TYPES:", SUPPLY_TYPES)
+print(" STATUSES:", STATUSES)
+print(" REQ_STATUSES:", REQ_STATUSES)
+print()
 
 PASSWORD_HASH = hash_password("Test1234!")
 NOW = datetime.now(timezone.utc)
