@@ -6,8 +6,10 @@ Uso:
     pip install faker          # solo la primera vez
     python seed_data.py
 
-Crea ~70 usuarios, ~180 insumos y ~130 solicitudes distribuidos
+Crea ~220 usuarios, ~450 insumos y ~350 solicitudes distribuidos
 a lo largo de los últimos 12 meses con una tendencia de crecimiento.
+Las ubicaciones se limitan a CDMX y Estado de México (alcaldías y
+municipios), igual que el catálogo del frontend (constants/ubicaciones.js).
 Todos los usuarios de prueba tienen la contraseña: Test1234!
 """
 
@@ -78,18 +80,28 @@ print()
 PASSWORD_HASH = hash_password("Test1234!")
 NOW = datetime.now(timezone.utc)
 
-CITIES = [
-    ("Ciudad de México", "CDMX"),
-    ("Guadalajara", "Jalisco"),
-    ("Monterrey", "Nuevo León"),
-    ("Puebla", "Puebla"),
-    ("Tijuana", "Baja California"),
-    ("Mérida", "Yucatán"),
-    ("León", "Guanajuato"),
-    ("Querétaro", "Querétaro"),
-    ("Zapopan", "Jalisco"),
-    ("Juárez", "Chihuahua"),
+ALCALDIAS_CDMX = [
+    "Álvaro Obregón", "Azcapotzalco", "Benito Juárez", "Coyoacán",
+    "Cuajimalpa de Morelos", "Cuauhtémoc", "Gustavo A. Madero", "Iztacalco",
+    "Iztapalapa", "La Magdalena Contreras", "Miguel Hidalgo", "Milpa Alta",
+    "Tláhuac", "Tlalpan", "Venustiano Carranza", "Xochimilco",
 ]
+
+MUNICIPIOS_EDOMEX = [
+    "Amecameca", "Atizapán de Zaragoza", "Chalco", "Chicoloapan",
+    "Chimalhuacán", "Coacalco de Berriozábal", "Cuautitlán", "Cuautitlán Izcalli",
+    "Ecatepec de Morelos", "Huixquilucan", "Ixtapaluca", "La Paz",
+    "Los Reyes La Paz", "Metepec", "Naucalpan de Juárez", "Nezahualcóyotl",
+    "Nicolás Romero", "Tecámac", "Texcoco", "Tlalnepantla de Baz",
+    "Toluca", "Tultepec", "Tultitlán", "Valle de Chalco Solidaridad",
+    "Zinacantepec", "Zumpango",
+]
+
+# (ciudad/alcaldía-municipio, estado) — debe coincidir con frontend/src/constants/ubicaciones.js
+CITIES = (
+    [(c, "Ciudad de México") for c in ALCALDIAS_CDMX]
+    + [(m, "Estado de México") for m in MUNICIPIOS_EDOMEX]
+)
 
 SUPPLY_TITLES = {
     "DONACION": [
@@ -162,7 +174,7 @@ def seed():
         print("Creando usuarios...")
         user_ids = []
 
-        for _ in range(70):
+        for _ in range(220):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             city, state = random.choice(CITIES)
@@ -210,7 +222,7 @@ def seed():
         supply_ids = []
         type_weights = [35, 30, 35]   # DONACION, VENTA, INTERCAMBIO
 
-        for _ in range(180):
+        for _ in range(450):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             stype = random.choices(SUPPLY_TYPES, weights=type_weights)[0]
@@ -266,7 +278,7 @@ def seed():
         seen = set()
         req_status_weights = [20, 20, 15, 10, 35]  # PENDIENTE ACEPTADA RECHAZADA CANCELADA COMPLETADA
 
-        for _ in range(150):
+        for _ in range(400):
             year, month = pick_month(mw)
             created = random_date_in_month(year, month)
             supply_id, owner_id = random.choice(supply_ids)
