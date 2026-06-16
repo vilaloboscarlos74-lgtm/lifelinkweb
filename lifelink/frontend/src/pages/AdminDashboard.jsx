@@ -50,6 +50,75 @@ function HBarChart({ data }) {
   );
 }
 
+// ── Gráfica de actividad anual (multi-serie) ─────────────────────────────────
+function YearlyChart({ data }) {
+  if (!data?.length) return <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>;
+
+  const series = [
+    { key: 'usuarios',     label: 'Usuarios',     color: '#6366f1' },
+    { key: 'donaciones',   label: 'Donaciones',   color: '#10b981' },
+    { key: 'ventas',       label: 'Ventas',       color: '#3b82f6' },
+    { key: 'intercambios', label: 'Intercambios', color: '#f59e0b' },
+    { key: 'solicitudes',  label: 'Solicitudes',  color: '#f43f5e' },
+  ];
+
+  const allVals = series.flatMap(s => data.map(d => d[s.key] ?? 0));
+  const max = Math.max(...allVals, 1);
+  const W = 560, H = 160, PL = 8, PR = 8, PT = 14, PB = 20;
+  const plotW = W - PL - PR;
+  const plotH = H - PT - PB;
+  const n = data.length;
+
+  const pts = (key) =>
+    data.map((d, i) => {
+      const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
+      const y = PT + (1 - (d[key] ?? 0) / max) * plotH;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 170 }}>
+        {/* horizontal grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map(f => {
+          const y = PT + (1 - f) * plotH;
+          return <line key={f} x1={PL} x2={W - PR} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.08" strokeWidth="1" />;
+        })}
+        {/* series lines */}
+        {series.map(s => (
+          <polyline key={s.key} points={pts(s.key)} fill="none" stroke={s.color} strokeWidth="2.2"
+            strokeLinejoin="round" strokeLinecap="round" />
+        ))}
+        {/* dots for current month */}
+        {series.map(s =>
+          data.map((d, i) => {
+            const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
+            const y = PT + (1 - (d[s.key] ?? 0) / max) * plotH;
+            return <circle key={`${s.key}-${i}`} cx={x} cy={y} r="2.5" fill={s.color} />;
+          })
+        )}
+        {/* month labels */}
+        {data.map((d, i) => {
+          const x = PL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
+          return (
+            <text key={i} x={x} y={H - 4} textAnchor="middle" fontSize="9" fill="#9ca3af">
+              {d.month}
+            </text>
+          );
+        })}
+      </svg>
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-1 justify-center">
+        {series.map(s => (
+          <span key={s.key} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+            <span className="inline-block w-4 rounded-full" style={{ backgroundColor: s.color, height: 3 }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Badges ───────────────────────────────────────────────────────────────────
 const STATUS_STYLES = {
   disponible: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -228,6 +297,17 @@ function StatsTab({ stats, error, onRefresh }) {
             ? <HBarChart data={charts.supplies_by_category} />
             : <p className="text-sm text-gray-400 text-center py-8">Sin datos aún</p>}
         </div>
+      </div>
+
+      {/* Gráfica anual */}
+      <div className="card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart2 size={18} className="text-indigo-600" />
+          <h2 className="font-semibold text-gray-800 dark:text-gray-200">
+            Actividad anual {new Date().getFullYear()}
+          </h2>
+        </div>
+        <YearlyChart data={charts.yearly_activity} />
       </div>
     </div>
   );

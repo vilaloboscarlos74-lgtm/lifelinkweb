@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, case, extract, or_
+from sqlalchemy import func, case, extract, or_, Integer
 from typing import List, Optional
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -73,6 +73,49 @@ def get_dashboard(
         func.count(Supply.id).label("count"),
     ).group_by(Supply.category).order_by(func.count(Supply.id).desc()).limit(8).all()
 
+    # Actividad anual — 12 meses del año en curso (4 queries en total)
+    current_year = now.year
+    MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+
+    user_monthly = db.query(
+        extract("month", User.created_at).cast(Integer).label("m"),
+        func.count(User.id).label("c"),
+    ).filter(extract("year", User.created_at) == current_year).group_by("m").all()
+    user_by_m = {int(r.m): r.c for r in user_monthly}
+
+    supply_monthly = db.query(
+        extract("month", Supply.created_at).cast(Integer).label("m"),
+        Supply.supply_type,
+        func.count(Supply.id).label("c"),
+    ).filter(extract("year", Supply.created_at) == current_year).group_by("m", Supply.supply_type).all()
+    don_by_m, ven_by_m, int_by_m = {}, {}, {}
+    for r in supply_monthly:
+        m = int(r.m)
+        if r.supply_type == SupplyType.DONACION:
+            don_by_m[m] = r.c
+        elif r.supply_type == SupplyType.VENTA:
+            ven_by_m[m] = r.c
+        elif r.supply_type == SupplyType.INTERCAMBIO:
+            int_by_m[m] = r.c
+
+    req_monthly = db.query(
+        extract("month", ContactRequest.created_at).cast(Integer).label("m"),
+        func.count(ContactRequest.id).label("c"),
+    ).filter(extract("year", ContactRequest.created_at) == current_year).group_by("m").all()
+    req_by_m = {int(r.m): r.c for r in req_monthly}
+
+    yearly_activity = [
+        {
+            "month": MONTHS[m - 1],
+            "usuarios": user_by_m.get(m, 0),
+            "donaciones": don_by_m.get(m, 0),
+            "ventas": ven_by_m.get(m, 0),
+            "intercambios": int_by_m.get(m, 0),
+            "solicitudes": req_by_m.get(m, 0),
+        }
+        for m in range(1, 13)
+    ]
+
     return {
         "users": {
             "total": user_stats.total,
@@ -99,6 +142,7 @@ def get_dashboard(
                 {"category": row.category.value if hasattr(row.category, "value") else str(row.category or "Sin categoría"), "count": row.count}
                 for row in supply_by_category
             ],
+            "yearly_activity": yearly_activity,
         },
     }
 
