@@ -312,7 +312,7 @@ function StatsSkeleton() {
 }
 
 // ── Tab Estadísticas ─────────────────────────────────────────────────────────
-function StatsTab({ stats, error, onRefresh, year, onYearChange }) {
+function StatsTab({ stats, error, onRefresh, year, onYearChange, period, onPeriodChange }) {
   if (error) return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
@@ -407,6 +407,24 @@ function StatsTab({ stats, error, onRefresh, year, onYearChange }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {[
+                { key: 'mensual',   label: 'Mensual' },
+                { key: 'bimestral', label: 'Bimestral' },
+              ].map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => onPeriodChange(p.key)}
+                  className={`text-xs font-semibold px-2.5 py-1.5 transition-colors ${
+                    period === p.key
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
             {availableYears.length > 1 && (
               <select
                 value={year}
@@ -433,8 +451,10 @@ function StatsTab({ stats, error, onRefresh, year, onYearChange }) {
               <BarChart2 size={16} className="text-violet-600" />
             </div>
             <div>
-              <h2 className="font-bold text-sm text-gray-900 dark:text-gray-100">Registros mensuales</h2>
-              <p className="text-[11px] text-gray-400">Nuevos usuarios (últimos 6 meses)</p>
+              <h2 className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                Nuevos usuarios — {period === 'bimestral' ? 'por bimestre' : 'por mes'}
+              </h2>
+              <p className="text-[11px] text-gray-400">Año {year}</p>
             </div>
           </div>
           {(charts.monthly_registrations?.length > 0)
@@ -1183,24 +1203,31 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState('stats');
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [period, setPeriod] = useState('mensual');
 
-  const loadStats = useCallback((y) => {
+  const loadStats = useCallback((y, p) => {
     setLoading(true);
     setStatsError(false);
-    adminAPI.getDashboard(y)
+    adminAPI.getDashboard(y, p)
       .then(r => {
         setStats(r.data);
         if (r.data?.charts?.selected_year) setYear(r.data.charts.selected_year);
+        if (r.data?.charts?.selected_period) setPeriod(r.data.charts.selected_period);
       })
       .catch(() => setStatsError(true))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadStats(year); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadStats(year, period); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleYearChange = (y) => {
     setYear(y);
-    loadStats(y);
+    loadStats(y, period);
+  };
+
+  const handlePeriodChange = (p) => {
+    setPeriod(p);
+    loadStats(year, p);
   };
 
   const TABS = [
@@ -1238,7 +1265,9 @@ export default function AdminDashboard() {
 
       {tab === 'stats' && loading
         ? <StatsSkeleton />
-        : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={() => loadStats(year)} year={year} onYearChange={handleYearChange} />
+        : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={() => loadStats(year, period)}
+                                  year={year} onYearChange={handleYearChange}
+                                  period={period} onPeriodChange={handlePeriodChange} />
         : tab === 'supplies' ? <SuppliesTab />
         : tab === 'users'    ? <UsersTab />
         : tab === 'requests' ? <RequestsTab />

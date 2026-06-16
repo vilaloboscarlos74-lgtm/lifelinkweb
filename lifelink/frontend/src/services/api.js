@@ -185,7 +185,9 @@ export const aiAPI = {
 
 // === ADMIN ===
 export const adminAPI = {
-  getDashboard: (year) => api.get('/admin/dashboard', { params: year ? { year } : {} }),
+  getDashboard: (year, period) => api.get('/admin/dashboard', {
+    params: { ...(year ? { year } : {}), ...(period ? { period } : {}) },
+  }),
   getUsers: (params) => api.get('/admin/users', { params }),
   toggleUserActive: (id) => api.put(`/admin/users/${id}/toggle-active`),
   toggleUserVerified: (id) => api.put(`/admin/users/${id}/verify`),

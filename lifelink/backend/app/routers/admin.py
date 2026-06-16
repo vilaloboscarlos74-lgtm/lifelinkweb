@@ -27,6 +27,7 @@ class UserPage(BaseModel):
 @router.get("/dashboard")
 def get_dashboard(
     year: Optional[int] = Query(None),
+    period: str = Query("mensual", pattern="^(mensual|bimestral)$"),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
@@ -48,19 +49,7 @@ def get_dashboard(
         func.count(case((ContactRequest.status == RequestStatus.COMPLETADA, 1))).label("completed"),
     ).one()
 
-    # Registros mensuales de usuarios (últimos 6 meses)
     now = datetime.now(timezone.utc)
-    monthly_users = []
-    for i in range(5, -1, -1):
-        target = now - timedelta(days=30 * i)
-        count = db.query(func.count(User.id)).filter(
-            extract("year", User.created_at) == target.year,
-            extract("month", User.created_at) == target.month,
-        ).scalar() or 0
-        monthly_users.append({
-            "month": target.strftime("%b %Y"),
-            "count": count,
-        })
 
     # Distribución de insumos por tipo
     supply_by_type = db.query(
@@ -83,9 +72,22 @@ def get_dashboard(
     if not available_years:
         available_years = [now.year]
 
-    # Actividad anual — 12 meses del año seleccionado (4 queries en total)
+    # Actividad anual — 12 meses (o 6 bimestres) del año seleccionado (4 queries en total)
     current_year = year if year in available_years else available_years[0]
     MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+    BIMESTERS = ["Ene-Feb","Mar-Abr","May-Jun","Jul-Ago","Sep-Oct","Nov-Dic"]
+
+    if period == "bimestral":
+        labels = BIMESTERS
+        n_periods = 6
+        def bucket(by_m: dict, i: int) -> int:
+            m1, m2 = i * 2 + 1, i * 2 + 2
+            return by_m.get(m1, 0) + by_m.get(m2, 0)
+    else:
+        labels = MONTHS
+        n_periods = 12
+        def bucket(by_m: dict, i: int) -> int:
+            return by_m.get(i + 1, 0)
 
     user_monthly = db.query(
         extract("month", User.created_at).cast(Integer).label("m"),
@@ -116,14 +118,20 @@ def get_dashboard(
 
     yearly_activity = [
         {
-            "month": MONTHS[m - 1],
-            "usuarios": user_by_m.get(m, 0),
-            "donaciones": don_by_m.get(m, 0),
-            "ventas": ven_by_m.get(m, 0),
-            "intercambios": int_by_m.get(m, 0),
-            "solicitudes": req_by_m.get(m, 0),
+            "month": labels[i],
+            "usuarios": bucket(user_by_m, i),
+            "donaciones": bucket(don_by_m, i),
+            "ventas": bucket(ven_by_m, i),
+            "intercambios": bucket(int_by_m, i),
+            "solicitudes": bucket(req_by_m, i),
         }
-        for m in range(1, 13)
+        for i in range(n_periods)
+    ]
+
+    # Registros de usuarios — mismo año y período que la gráfica de actividad
+    monthly_users = [
+        {"month": labels[i], "count": bucket(user_by_m, i)}
+        for i in range(n_periods)
     ]
 
     return {
@@ -155,6 +163,7 @@ def get_dashboard(
             "yearly_activity": yearly_activity,
             "available_years": available_years,
             "selected_year": current_year,
+            "selected_period": period,
         },
     }
 
