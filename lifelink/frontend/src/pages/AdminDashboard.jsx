@@ -312,7 +312,7 @@ function StatsSkeleton() {
 }
 
 // ── Tab Estadísticas ─────────────────────────────────────────────────────────
-function StatsTab({ stats, error, onRefresh }) {
+function StatsTab({ stats, error, onRefresh, year, onYearChange }) {
   if (error) return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
@@ -328,9 +328,9 @@ function StatsTab({ stats, error, onRefresh }) {
   if (!stats) return null;
 
   const charts = stats.charts || {};
-  const year = new Date().getFullYear();
+  const availableYears = charts.available_years?.length ? charts.available_years : [year];
 
-  // Totales del año actual desde yearly_activity
+  // Totales del año mostrado desde yearly_activity
   const yearTotals = (charts.yearly_activity || []).reduce(
     (acc, m) => ({
       usuarios:    acc.usuarios    + (m.usuarios    ?? 0),
@@ -406,10 +406,21 @@ function StatsTab({ stats, error, onRefresh }) {
               <p className="text-xs text-gray-400 dark:text-gray-500">Usuarios registrados · Insumos publicados · Solicitudes recibidas</p>
             </div>
           </div>
-          <button onClick={onRefresh}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-            <RefreshCw size={12} /> Actualizar
-          </button>
+          <div className="flex items-center gap-3">
+            {availableYears.length > 1 && (
+              <select
+                value={year}
+                onChange={e => onYearChange(parseInt(e.target.value, 10))}
+                className="text-xs font-semibold border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-pointer"
+              >
+                {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+            <button onClick={onRefresh}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+              <RefreshCw size={12} /> Actualizar
+            </button>
+          </div>
         </div>
         <YearlyChart data={charts.yearly_activity} />
       </div>
@@ -1171,17 +1182,26 @@ export default function AdminDashboard() {
   const [statsError, setStatsError] = useState(false);
   const [tab, setTab] = useState('stats');
   const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(new Date().getFullYear());
 
-  const loadStats = useCallback(() => {
+  const loadStats = useCallback((y) => {
     setLoading(true);
     setStatsError(false);
-    adminAPI.getDashboard()
-      .then(r => setStats(r.data))
+    adminAPI.getDashboard(y)
+      .then(r => {
+        setStats(r.data);
+        if (r.data?.charts?.selected_year) setYear(r.data.charts.selected_year);
+      })
       .catch(() => setStatsError(true))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadStats(year); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleYearChange = (y) => {
+    setYear(y);
+    loadStats(y);
+  };
 
   const TABS = [
     { key: 'stats',    label: 'Estadísticas',  icon: BarChart2 },
@@ -1218,7 +1238,7 @@ export default function AdminDashboard() {
 
       {tab === 'stats' && loading
         ? <StatsSkeleton />
-        : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={loadStats} />
+        : tab === 'stats'    ? <StatsTab stats={stats} error={statsError} onRefresh={() => loadStats(year)} year={year} onYearChange={handleYearChange} />
         : tab === 'supplies' ? <SuppliesTab />
         : tab === 'users'    ? <UsersTab />
         : tab === 'requests' ? <RequestsTab />

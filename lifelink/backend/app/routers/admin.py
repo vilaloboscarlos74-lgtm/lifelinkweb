@@ -26,6 +26,7 @@ class UserPage(BaseModel):
 
 @router.get("/dashboard")
 def get_dashboard(
+    year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
@@ -73,8 +74,17 @@ def get_dashboard(
         func.count(Supply.id).label("count"),
     ).group_by(Supply.category).order_by(func.count(Supply.id).desc()).limit(8).all()
 
-    # Actividad anual — 12 meses del año en curso (4 queries en total)
-    current_year = now.year
+    # Años disponibles con datos (para el selector de historial)
+    year_rows = db.query(extract("year", User.created_at).cast(Integer)).distinct() \
+        .union(db.query(extract("year", Supply.created_at).cast(Integer)).distinct()) \
+        .union(db.query(extract("year", ContactRequest.created_at).cast(Integer)).distinct()) \
+        .all()
+    available_years = sorted({int(r[0]) for r in year_rows if r[0] is not None}, reverse=True)
+    if not available_years:
+        available_years = [now.year]
+
+    # Actividad anual — 12 meses del año seleccionado (4 queries en total)
+    current_year = year if year in available_years else available_years[0]
     MONTHS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
 
     user_monthly = db.query(
@@ -143,6 +153,8 @@ def get_dashboard(
                 for row in supply_by_category
             ],
             "yearly_activity": yearly_activity,
+            "available_years": available_years,
+            "selected_year": current_year,
         },
     }
 
