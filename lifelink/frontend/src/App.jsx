@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import SiteLock from './components/SiteLock';
 
 // Pages
 import Home from './pages/Home';
@@ -32,6 +33,7 @@ import PrivacyPage from './pages/PrivacyPage';
 
 export default function App() {
   return (
+    <SiteLock>
     <ThemeProvider>
     <AuthProvider>
       <Router>
@@ -91,5 +93,6 @@ export default function App() {
       </Router>
     </AuthProvider>
     </ThemeProvider>
+    </SiteLock>
   );
 }
